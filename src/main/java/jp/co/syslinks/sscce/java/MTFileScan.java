@@ -10,6 +10,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,8 +20,10 @@ public class MTFileScan {
     private static final Logger logger = LoggerFactory.getLogger(MTFileScan.class);
 
     private static final int TIME_OUT_SEC = 5;
-    private static final int DIR_MAX = 16;
-    private static final int ThreadPoolSize = 4;
+    private static final int DIR_MAX = 64;
+    private static final int ThreadPoolSize = 2;
+    private static final AtomicLong dirTotal = new AtomicLong(0L);
+    private static final AtomicLong dirComplete = new AtomicLong(0L);
 
     public static final class NamedThreadFactory implements ThreadFactory {
         private final String name;
@@ -41,7 +44,7 @@ public class MTFileScan {
     private static final ScheduledExecutorService progress = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("progress-"));
 
     public static void main(String[] args) throws Exception {
-        File root = Paths.get("D:/Soft_x64").toFile();
+        File root = Paths.get("E:/").toFile();
         new Thread(() -> {
             try {
                 travel(root);
@@ -51,21 +54,23 @@ public class MTFileScan {
         }).start();
 
         progress.scheduleWithFixedDelay(() -> {
-            logger.debug("{}/{}", dirs.remainingCapacity(), dirs.size());
+            logger.debug("{}/{}", dirComplete.longValue(), dirTotal.longValue());
         }, 1, 3, TimeUnit.SECONDS);
 
         File dir = null;
         while ((dir = dirs.poll(TIME_OUT_SEC, TimeUnit.SECONDS)) != null) {
-            // TimeUnit.MILLISECONDS.sleep(100);
+            dirComplete.incrementAndGet();
+            //TimeUnit.MILLISECONDS.sleep(100);
             final File dir$ = dir;
             POOL.execute(() -> {
                 try {
                     for (File file : dir$.listFiles(_file -> {
                         return _file.isFile();
                     })) {
-                        logger.debug("{}", file.getPath());
+                        logger.trace("{}", file.getPath());
                     }
                 } catch (Exception e) {
+                    logger.error(dir$.getPath());
                     throw new RuntimeException(e);
                 }
             });
@@ -82,7 +87,19 @@ public class MTFileScan {
     public static void travel(File root) throws InterruptedException {
         if (root.isDirectory()) {
             // logger.debug("{}", root.getPath());
-            dirs.offer(root, TIME_OUT_SEC, TimeUnit.SECONDS);
+            String name = root.getName();
+            if ("$RECYCLE.BIN".equals(name)) {
+                return;
+            }
+            if (".Trashes".equals(name)) {
+                return;
+            }
+            if ("System Volume Information".equals(name)) {
+                return;
+            }
+            if (dirs.offer(root, TIME_OUT_SEC, TimeUnit.SECONDS)) {
+                dirTotal.incrementAndGet();
+            }
             for (File child : root.listFiles(_file -> {
                 return _file.isDirectory();
             })) {
