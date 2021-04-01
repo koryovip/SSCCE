@@ -9,6 +9,9 @@ import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
 マルチスレッドメール送信模擬コード
 
@@ -24,6 +27,8 @@ UPDATE T_MAIL SET STATUS = '1' , SENDER = NULL, SENT_TIME = NULL;
 COMMIT;
  */
 public class MTSendMail {
+
+    private static final Logger logger = LoggerFactory.getLogger(MTSendMail.class);
 
     static private final int MAX = 4;
 
@@ -92,7 +97,7 @@ public class MTSendMail {
                     ps2.setString(2, "2"); // status = '2'
                     ps2.setLong(3, id);
                     int updateCount = ps2.executeUpdate();
-                    System.out.println(String.format("%10s : % 3d : %d", name, id, updateCount));
+                    logger.debug("{}", String.format("%10s : % 3d : %d", name, id, updateCount));
                     conn.commit(); // 行単位コミット
                 }
             } catch (Exception e) {
