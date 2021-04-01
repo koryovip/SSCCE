@@ -14,9 +14,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class FileScannerMT {
+public class MTFileScan {
 
-    private static final Logger logger = LoggerFactory.getLogger(FileScannerMT.class);
+    private static final Logger logger = LoggerFactory.getLogger(MTFileScan.class);
 
     private static final int TIME_OUT_SEC = 5;
     private static final int DIR_MAX = 16;

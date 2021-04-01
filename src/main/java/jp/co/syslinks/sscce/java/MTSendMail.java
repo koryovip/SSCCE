@@ -23,7 +23,7 @@ CREATE TABLE T_MAIL (
 UPDATE T_MAIL SET STATUS = '1' , SENDER = NULL, SENT_TIME = NULL;
 COMMIT;
  */
-public class SendMailMT {
+public class MTSendMail {
 
     static private final int MAX = 4;
 
