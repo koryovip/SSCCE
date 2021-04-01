@@ -10,6 +10,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
+マルチスレッドメール送信模擬コード
+
 CREATE TABLE T_MAIL (
     ID NUMBER NOT NULL,
     STATUS CHAR(1) NOT NULL,
@@ -69,13 +71,16 @@ public class SendMailMT {
                 conn = DriverManager.getConnection("jdbc:oracle:thin:@192.168.0.150:49161:xe", "system", "oracle");
                 conn.setAutoCommit(false);
                 // ヒント句の/*+FIRST_ROWS_1*/が必須！
-                ps1 = conn.prepareStatement("SELECT /*+FIRST_ROWS_1*/ ID FROM T_MAIL WHERE STATUS = ? ORDER BY ID DESC FOR UPDATE SKIP LOCKED");
+                // FOR UPDATE: 行ロック
+                // SKIP LOCKED: ロックされた行を無視
+                ps1 = conn.prepareStatement("SELECT /*+FIRST_ROWS_1*/ ID FROM T_MAIL WHERE STATUS = ? ORDER BY ID ASC FOR UPDATE SKIP LOCKED");
                 ps1.setMaxRows(1); // ★ ps.setMaxRows(1); も必須！
                 ps1.setFetchSize(1);
                 ps1.setString(1, "1"); // status = '1'
                 Long id = null;
                 while ((id = findId(ps1)) != null) {
                     {
+                        // 模擬メール送信処理
                         TimeUnit.MILLISECONDS.sleep(100 + random.nextInt(100));
                     }
                     if (ps2 == null) {
