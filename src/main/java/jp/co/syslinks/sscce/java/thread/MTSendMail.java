@@ -1,4 +1,4 @@
-package jp.co.syslinks.sscce.java;
+package jp.co.syslinks.sscce.java.thread;
 
 import java.sql.Connection;
 import java.sql.DriverManager;

@@ -1,4 +1,4 @@
-package jp.co.syslinks.sscce.java;
+package jp.co.syslinks.sscce.java.utils;
 
 /**
  * 描述: Twitter的分布式自增ID雪花算法snowflake (Java版)

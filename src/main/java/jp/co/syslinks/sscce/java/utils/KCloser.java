@@ -1,4 +1,4 @@
-package jp.co.syslinks.sscce.java;
+package jp.co.syslinks.sscce.java.utils;
 
 import java.sql.SQLException;
 
