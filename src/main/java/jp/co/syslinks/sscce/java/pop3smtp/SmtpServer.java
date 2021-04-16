@@ -8,28 +8,55 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 
 /**
->>> Connecting to "127.0.0.1" [2021/04/16 00:42:41] <<<
-+OK POP3 server ready
-USER koryo
-+OK
-PASS ********
-+OK
-STAT
-+OK
-LIST
-+OK 2 messages:
-1 391
-2 462
-.
-UIDL
-+OK
-1 10c0035cb84ff36f078b26fe89050b6c
-2 1504786cef65214303beb3426b51fd3f
-.
-QUIT
-+OK
+% telnet some.where.co.jp 25
+
+Trying some.where.co.jp ...
+
+Connected to some.where.co.jp.
+
+Escape character is '^]'.
+
+220 some.computer.com Sendmail 4.1/SMI-4.1 ready at Fri, 13 Nov 98 11:10:10 MDT
+
+> HELO another.place.com
+
+250
+
+> MAIL FROM: jobs@some.computer.co.jp
+
+250 ok
+
+> RCPT TO: gates@some.software.co.jp
+
+250 ok
+
+> DATA
+
+354 Enter mail, end with "." on a line by itself
+
+
+
+> Dear Gates
+
+> I would like to be grateful it if you could buy my company.
+
+> Jobs
+
+
+
+> .
+
+
+
+
+
+> QUIT
+
+250 ok
+
+@see http://research.nii.ac.jp/~ichiro/syspro98/smtp.html
  */
-public class Pop3Server extends SelectorServer {
+public class SmtpServer extends SelectorServer {
 
     @Override
     protected void handle(SelectionKey key) throws IOException {
@@ -48,7 +75,7 @@ public class Pop3Server extends SelectorServer {
         SocketChannel channel = ((ServerSocketChannel) key.channel()).accept();
         channel.configureBlocking(false);
         // channel.register(key.selector(), SelectionKey.OP_READ);
-        channel.register(key.selector(), SelectionKey.OP_WRITE, new PipeData("+OK POP3 server ready\n", false));
+        channel.register(key.selector(), SelectionKey.OP_WRITE, new PipeData("220 some.computer.com Sendmail 4.1/SMI-4.1 ready at Fri, 13 Nov 98 11:10:10 MDT\n", false));
     }
 
     final private static class PipeData {
@@ -60,6 +87,9 @@ public class Pop3Server extends SelectorServer {
             this.close = close;
         }
     }
+
+    private boolean isMailBody = false;
+    private StringBuilder mailBody = new StringBuilder();
 
     //2 再读取
     private void handleRead(SelectionKey key) throws IOException {
@@ -74,18 +104,24 @@ public class Pop3Server extends SelectorServer {
         }
         System.out.print(builder);
         //        String resp = RedisHandler.handleCmd(builder.toString()); //redis逻辑处理完成，然后进行返回给客户端
-        String result = "+OK\n";
+        String result = "250 OK\n";
         boolean close = false;
-        if (builder.toString().startsWith("USER ")) {
-        } else if (builder.toString().startsWith("PASS ")) {
-        } else if (builder.toString().equals("STAT\r\n")) {
-        } else if (builder.toString().equals("LIST\r\n")) {
-            result += ".\n";
-        } else if (builder.toString().equals("UIDL\r\n")) {
-            result += ".\n";
+        if (isMailBody) {
+            mailBody.append(builder);
+            isMailBody = false;
+        }
+        if (builder.toString().startsWith("EHLO ")) {
+        } else if (builder.toString().startsWith("MAIL FROM:")) {
+        } else if (builder.toString().startsWith("RCPT TO:")) {
+        } else if (builder.toString().equals("RSET\r\n")) {
+        } else if (builder.toString().equals("DATA\r\n")) {
+            result = "354 Enter mail, end with \".\" on a line by itself\n";
+            isMailBody = true;
         } else if (builder.toString().equals("QUIT\r\n")) {
+            System.out.println("--------------------------------");
+            System.out.println(mailBody.toString());
+            System.out.println("--------------------------------");
             close = true;
-        } else if (builder.toString().equals("NOOP\r\n")) {
         }
         channel.register(key.selector(), SelectionKey.OP_WRITE, new PipeData(result, close)); //结果放到attachment
     }
