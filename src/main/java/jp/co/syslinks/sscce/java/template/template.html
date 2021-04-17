@@ -1,22 +1,29 @@
-<html>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes" />
+    <title></title>
+</head>
 <body>
-	<h1>こんにちは、#(user) 様</h1>
-	<ul>#(for item : items)
-		<li>#(item),#(item)</li>#(end)
-	</ul>
-	<table>
-		<thead>
-			<tr>
-				<th>お名前</th><th>年齢</th><th>性別</th>
-			</tr>
-		</thead>
-		<tbody>#(for user : userList)
-			<tr>
-				<td>#(user.name)</td>
-				<td>#(user.age)</td>
-				<td>#(user.sex)</td>
-			</tr>#(end)
-		</tbody>
-	</table>
+    <h1>こんにちは、#(user) 様</h1>
+    <ul>#(for item : items)
+        <li>#(item),#(item)</li>#(end)
+    </ul>
+    <table>
+        <thead>
+            <tr>
+                <th>お名前</th><th>年齢</th><th>性別</th>
+            </tr>
+        </thead>
+        <tbody>#(for user : userList)
+            <tr>
+                <td>#(user.name)</td>
+                <td>#(user.age)</td>
+                <td>#(user.sex)</td>
+            </tr>#(end)
+        </tbody>
+    </table>
 </body>
 </html>
