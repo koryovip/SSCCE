@@ -95,26 +95,22 @@ public class TemplateParser {
             System.out.println(v);
         });
         System.out.println("-----------------------------------------------------------------------------");
-        for (int ii = 0, len = tokenList.size(); ii < len; ii++) {
+        render(tokenList, 0, -1, map, null);
+    }
+
+    private void render(List<TokenBase> tokenList, int start, int end, Map<String, Object> map, Object forItem) throws Exception {
+        for (int ii = start, len = end < 0 ? tokenList.size() : end; ii < len; ii++) {
             TokenBase token = tokenList.get(ii);
             if (token instanceof TokenContents) {
                 append(((TokenContents) token).contents);
             } else if (token instanceof TokenValue) {
-                append(getValue(((TokenValue) token), map, null));
+                append(getValue(((TokenValue) token), map, forItem));
             } else if (token instanceof TokenFor) {
                 TokenFor tokenFor = (TokenFor) token;
                 Object obj = map.get(tokenFor.items);
                 Iterator<?> iter = (Iterator<?>) obj.getClass().getMethod("iterator").invoke(obj);
                 while (iter.hasNext()) {
-                    Object item = iter.next();
-                    for (int jj = ii + 1; jj < tokenFor.endIndex; jj++) {
-                        TokenBase token2 = tokenList.get(jj);
-                        if (token2 instanceof TokenContents) {
-                            append(((TokenContents) token2).contents);
-                        } else if (token2 instanceof TokenValue) {
-                            append(getValue(((TokenValue) token2), map, item));
-                        }
-                    }
+                    render(tokenList, ii + 1, tokenFor.endIndex, map, iter.next());
                 }
                 ii = tokenFor.endIndex;
             }
