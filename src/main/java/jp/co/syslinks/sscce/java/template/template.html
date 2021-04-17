@@ -7,9 +7,9 @@
     <title></title>
 </head>
 <body>
-    <h1>こんにちは、#(user) 様</h1>
-    <ul>#(for item : items)
-        <li>#(item),#(item)</li>#(end)
+    <h1>こんに#[##]ちは、#[user] 様</h1>
+    <ul>#[for item : items]
+        <li>#[item],#[item]</li>#[for]
     </ul>
     <table>
         <thead>
@@ -17,12 +17,12 @@
                 <th>お名前</th><th>年齢</th><th>性別</th>
             </tr>
         </thead>
-        <tbody>#(for user : userList)
+        <tbody>#[for user : userList]
             <tr>
-                <td>#(user.name)</td>
-                <td>#(user.age)</td>
-                <td>#(user.sex)</td>
-            </tr>#(end)
+                <td>#[user.name]</td>
+                <td>#[user.age]</td>
+                <td>#[if (user.sex == 0)](#[user])-#["男"]#[else](#["女"])#[if]</td>
+            </tr>#[for]
         </tbody>
     </table>
 </body>
