@@ -1,0 +1,22 @@
+<html>
+<body>
+	<h1>こんにちは、#(user) 様</h1>
+	<ul>#(for item : items)
+		<li>#(item),#(item)</li>#(end)
+	</ul>
+	<table>
+		<thead>
+			<tr>
+				<th>お名前</th><th>年齢</th><th>性別</th>
+			</tr>
+		</thead>
+		<tbody>#(for user : userList)
+			<tr>
+				<td>#(user.name)</td>
+				<td>#(user.age)</td>
+				<td>#(user.sex)</td>
+			</tr>#(end)
+		</tbody>
+	</table>
+</body>
+</html>
