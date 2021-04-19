@@ -61,31 +61,40 @@ public class TemplateParser {
                     String ss = buff.toString();
                     if ("#".equals(ss) || ss.matches("^#+$")) {
                         tokenList.add(new TokenShape(ss));
-                    } else if ("for".equals(ss)) {
+                    } else if ("for".equals(ss)) { // end for
                         tokenList.add(new TokenEndFor());
-                    } else if ("if".equals(ss)) {
+                    } else if ("if".equals(ss)) { // end if
                         tokenList.add(new TokenEndIf());
                     } else if ("else".equals(ss)) {
                         tokenList.add(new TokenElse());
-                    } else if (ss.startsWith("if ")) {
-                        tokenList.add(new TokenIf(ss));
                     } else {
-                        {
+                        boolean notMatched = true;
+                        if (notMatched) {
                             Matcher matcher = CONST.matcher(ss);
                             if (matcher.matches()) {
                                 tokenList.add(new TokenConst(matcher.group(1)));
+                                notMatched = false;
                             }
                         }
-                        {
+                        if (notMatched) {
                             Matcher matcher = FOR1.matcher(ss);
                             if (matcher.matches()) {
                                 tokenList.add(new TokenFor(matcher.group(1), matcher.group(2)));
+                                notMatched = false;
                             }
                         }
-                        {
+                        if (notMatched) {
+                            Matcher matcher = IF1.matcher(ss);
+                            if (matcher.matches()) {
+                                tokenList.add(new TokenIf(matcher.group(1), matcher.group(2), matcher.group(3), matcher.group(4), matcher.group(5)));
+                                notMatched = false;
+                            }
+                        }
+                        if (notMatched) {
                             Matcher matcher = VALUE.matcher(ss);
                             if (matcher.matches()) {
                                 tokenList.add(new TokenValue(matcher.group(1), matcher.group(2)));
+                                notMatched = false;
                             }
                         }
                     }
@@ -150,13 +159,15 @@ public class TemplateParser {
             } else if (token instanceof TokenConst) {
                 append(((TokenConst) token).value);
             } else if (token instanceof TokenValue) {
-                append(getValue(((TokenValue) token), map, forItem));
+                TokenValue tokenValue = (TokenValue) token;
+                append(getValue(tokenValue.key, tokenValue.key2, map, forItem));
             } else if (token instanceof TokenIf) {
                 TokenIf tokenIf = (TokenIf) token;
                 TokenElse tokenElse = (TokenElse) tokenList.get(tokenIf.endIndex);
                 int startAt = -1;
                 int endAt = -1;
-                if (System.currentTimeMillis() % 2 == 0) { // dummy
+                // if (System.currentTimeMillis() % 2 == 0) { // dummy
+                if (compare(getValue(tokenIf.left1, tokenIf.left2, map, forItem), tokenIf.cond, getValue(tokenIf.right1, tokenIf.right2, map, forItem))) {
                     startAt = tokenIf.startIndex + 1;
                     endAt = tokenIf.endIndex;
                 } else {
@@ -181,23 +192,57 @@ public class TemplateParser {
         }
     }
 
+    private boolean compare(Object obj1, String cond, Object obj2) {
+        switch (cond) {
+        case "==":
+            if (obj1 == obj2) {
+                return true;
+            }
+            if (obj1 == null && obj2 != null) {
+                return false;
+            }
+            if (obj1 != null && obj2 == null) {
+                return false;
+            }
+            if (obj1.equals(obj2)) {
+                return true;
+            }
+            return false;
+        default:
+            return false;
+        }
+    }
+
     private void append(Object str) {
         System.out.print(str);
     }
 
-    private Object getValue(TokenValue tokenValue, Map<String, Object> map, Object item) throws Exception {
-        if (tokenValue.key2 == null) {
+    private Object getValue(String key1, String key2, Map<String, Object> map, Object item) throws Exception {
+        if (key2 == null) {
+            if (key1.matches("^[0-9]+$")) {
+                return Integer.parseInt(key1);
+            }
             if (item instanceof String) {
                 return item;
             }
-            return map.get(tokenValue.key);
+            return map.get(key1);
         }
-        return item.getClass().getField(tokenValue.key2.substring(1)).get(item);
+        return item.getClass().getField(key2).get(item);
     }
 
     private static final Pattern CONST = Pattern.compile("^\"(.*?)\"$"/*, Pattern.MULTILINE*/);
-    private static final Pattern VALUE = Pattern.compile("^([a-zA-Z0-9]+)(\\.[a-zA-Z0-9]+)?$"/*, Pattern.MULTILINE*/);
-    private static final Pattern FOR1 = Pattern.compile("for[ ]+([a-zA-Z0-9]+)[ ]+:[ ]+([a-zA-Z0-9]+)");
+    private static final Pattern VALUE = Pattern.compile("^([a-zA-Z0-9]+)(?:\\.([a-zA-Z0-9]+))?$"/*, Pattern.MULTILINE*/); // username or user.name
+    private static final Pattern FOR1 = Pattern.compile("for[ ]+([a-zA-Z0-9]+)[ ]+:[ ]+([a-zA-Z0-9]+)"); // for item : items
+
+    /**
+    if (user.name == 0)
+    if (user.name > 0)
+    if (user.name < 0)
+    if (user.name != 0)
+    if (user.name < user.name)
+    if (user.name = 0)    NG
+     */
+    private static final Pattern IF1 = Pattern.compile("^if +\\(([a-zA-Z0-9]+)(?:\\.([a-zA-Z0-9]+))? +([!=<>]+) +([a-zA-Z0-9]+)(?:\\.([a-zA-Z0-9]+))?\\)$");
 
     public static void main(String[] args) throws Exception {
         try (Reader reader = new InputStreamReader(TemplateParser.class.getResourceAsStream("template.html"))) {

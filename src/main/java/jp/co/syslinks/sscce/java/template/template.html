@@ -21,7 +21,8 @@
             <tr>
                 <td>#[user.name]</td>
                 <td>#[user.age]</td>
-                <td>#[if (user.sex == 0)](#[user])-#["男"]#[else](#["女"])#[if]</td>
+                <td>#[user.sex]</td>
+                <td>#[if (user.sex == 0)](#[user])-男#[else](#["女"])#[if]</td>
             </tr>#[for]
         </tbody>
     </table>
