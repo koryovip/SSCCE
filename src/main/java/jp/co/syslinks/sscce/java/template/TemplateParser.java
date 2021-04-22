@@ -19,7 +19,6 @@ import jp.co.syslinks.sscce.java.template.token.TokenEndFor;
 import jp.co.syslinks.sscce.java.template.token.TokenEndIf;
 import jp.co.syslinks.sscce.java.template.token.TokenFor;
 import jp.co.syslinks.sscce.java.template.token.TokenIf;
-import jp.co.syslinks.sscce.java.template.token.TokenShape;
 import jp.co.syslinks.sscce.java.template.token.TokenValue;
 
 public class TemplateParser {
@@ -31,124 +30,142 @@ public class TemplateParser {
     private Status stauts = Status.contents;
 
     public void parse(Reader reader, Map<String, Object> map) throws Exception {
-        List<TokenBase> tokenList = new ArrayList<>();
-        StringBuilder buff = new StringBuilder();
-        boolean stopMoveCursor = false;
-        int read = -1;
-        while (stopMoveCursor || (read = reader.read()) != -1) {
-            char ch = (char) read;
-            if (stauts == Status.contents) {
-                if (ch == '#') {
-                    stauts = Status.tagBegin;
-                    if (buff.length() == 0) {
-                        continue;
-                    }
-                    tokenList.add(new TokenContents(buff.toString()));
-                    buff.setLength(0);
+        final List<TokenBase> tokenList = new ArrayList<>();
+        {
+            final StringBuilder buff = new StringBuilder();
+            for (;;) {
+                int read = reader.read();
+                if (read == -1) {
+                    break;
+                }
+                while (!this.readChar((char) read, tokenList, buff)) {
+                }
+            }
+            if (buff.length() > 0) {
+                tokenList.add(new TokenContents(buff.toString()));
+                buff.setLength(0);
+            }
+        }
+        {
+            int forIndex = -1;
+            int ifIndex = -1;
+            int elseIndex = -1;
+            for (int ii = 0, len = tokenList.size(); ii < len; ii++) {
+                TokenBase token = tokenList.get(ii);
+                if (token instanceof TokenFor) {
+                    forIndex = ii;
                     continue;
                 }
+                if (token instanceof TokenEndFor) {
+                    ((TokenFor) tokenList.get(forIndex)).endIndex = ii;
+                    ((TokenEndFor) token).forIndex = forIndex;
+                    continue;
+                }
+                if (token instanceof TokenIf) {
+                    ((TokenIf) token).startIndex = ii;
+                    ifIndex = ii;
+                    elseIndex = ii;
+                    continue;
+                }
+                if (token instanceof TokenElse) {
+                    ((TokenIf) tokenList.get(elseIndex)).endIndex = ii;
+                    ((TokenElse) token).startIndex = ii;
+                    elseIndex = ii;
+                    continue;
+                }
+                if (token instanceof TokenEndIf) {
+                    ((TokenElse) tokenList.get(elseIndex)).endIndex = ii;
+                    ((TokenEndIf) token).startIndex = ifIndex;
+                    ((TokenEndIf) token).endIndex = ii;
+                    continue;
+                }
+            }
+        }
+        {
+            tokenList.forEach(v -> {
+                System.out.println(v);
+            });
+            System.out.println("-----------------------------------------------------------------------------");
+        }
+        render(tokenList, 0, -1, map, null);
+    }
+
+    private boolean readChar(final char ch, final List<TokenBase> tokenList, final StringBuilder buff) throws Exception {
+        boolean moveCursor = true;
+        if (stauts == Status.contents) {
+            if (ch == '#') {
+                stauts = Status.tagBegin;
+                if (buff.length() == 0) {
+                    return moveCursor;
+                }
+                tokenList.add(new TokenContents(buff.toString()));
+                buff.setLength(0);
+                return moveCursor;
+            }
+            buff.append(ch);
+        }
+        if (stauts == Status.tagBegin) {
+            if (ch == '[') {
+                stauts = Status.tagIn;
+                return moveCursor;
+            } else {
+                stauts = Status.contents;
+                buff.append("#");
+                moveCursor = false;
+                return moveCursor;
+            }
+        }
+        if (stauts == Status.tagIn) {
+            if (ch == ']') {
+                stauts = Status.tagEnd;
+                String ss = buff.toString();
+                if ("for".equals(ss)) { // end for
+                    tokenList.add(new TokenEndFor());
+                } else if ("if".equals(ss)) { // end if
+                    tokenList.add(new TokenEndIf());
+                } else if ("else".equals(ss)) {
+                    tokenList.add(new TokenElse());
+                } else {
+                    boolean notMatched = true;
+                    if (notMatched) {
+                        Matcher matcher = CONST.matcher(ss);
+                        if (matcher.matches()) {
+                            tokenList.add(new TokenConst(matcher.group(1)));
+                            notMatched = false;
+                        }
+                    }
+                    if (notMatched) {
+                        Matcher matcher = FOR1.matcher(ss);
+                        if (matcher.matches()) {
+                            tokenList.add(new TokenFor(matcher.group(1), matcher.group(2)));
+                            notMatched = false;
+                        }
+                    }
+                    if (notMatched) {
+                        Matcher matcher = IF1.matcher(ss);
+                        if (matcher.matches()) {
+                            tokenList.add(new TokenIf(matcher.group(1), matcher.group(2), matcher.group(3), matcher.group(4), matcher.group(5)));
+                            notMatched = false;
+                        }
+                    }
+                    if (notMatched) {
+                        Matcher matcher = VALUE.matcher(ss);
+                        if (matcher.matches()) {
+                            tokenList.add(new TokenValue(matcher.group(1), matcher.group(2)));
+                            notMatched = false;
+                        }
+                    }
+                }
+                buff.setLength(0);
+            } else {
                 buff.append(ch);
             }
-            if (stauts == Status.tagBegin) {
-                if (ch == '[') {
-                    stauts = Status.tagIn;
-                    continue;
-                }
-            }
-            if (stauts == Status.tagIn) {
-                if (ch == ']') {
-                    stauts = Status.tagEnd;
-                    String ss = buff.toString();
-                    if ("#".equals(ss) || ss.matches("^#+$")) {
-                        tokenList.add(new TokenShape(ss));
-                    } else if ("for".equals(ss)) { // end for
-                        tokenList.add(new TokenEndFor());
-                    } else if ("if".equals(ss)) { // end if
-                        tokenList.add(new TokenEndIf());
-                    } else if ("else".equals(ss)) {
-                        tokenList.add(new TokenElse());
-                    } else {
-                        boolean notMatched = true;
-                        if (notMatched) {
-                            Matcher matcher = CONST.matcher(ss);
-                            if (matcher.matches()) {
-                                tokenList.add(new TokenConst(matcher.group(1)));
-                                notMatched = false;
-                            }
-                        }
-                        if (notMatched) {
-                            Matcher matcher = FOR1.matcher(ss);
-                            if (matcher.matches()) {
-                                tokenList.add(new TokenFor(matcher.group(1), matcher.group(2)));
-                                notMatched = false;
-                            }
-                        }
-                        if (notMatched) {
-                            Matcher matcher = IF1.matcher(ss);
-                            if (matcher.matches()) {
-                                tokenList.add(new TokenIf(matcher.group(1), matcher.group(2), matcher.group(3), matcher.group(4), matcher.group(5)));
-                                notMatched = false;
-                            }
-                        }
-                        if (notMatched) {
-                            Matcher matcher = VALUE.matcher(ss);
-                            if (matcher.matches()) {
-                                tokenList.add(new TokenValue(matcher.group(1), matcher.group(2)));
-                                notMatched = false;
-                            }
-                        }
-                    }
-                    buff.setLength(0);
-                } else {
-                    buff.append(ch);
-                }
-            }
-            if (stauts == Status.tagEnd) {
-                stauts = Status.contents;
-            }
         }
-        tokenList.add(new TokenContents(buff.toString()));
-        buff.setLength(0);
-
-        int forIndex = -1;
-        int ifIndex = -1;
-        int elseIndex = -1;
-        for (int ii = 0, len = tokenList.size(); ii < len; ii++) {
-            TokenBase token = tokenList.get(ii);
-            if (token instanceof TokenFor) {
-                forIndex = ii;
-                continue;
-            }
-            if (token instanceof TokenEndFor) {
-                ((TokenFor) tokenList.get(forIndex)).endIndex = ii;
-                ((TokenEndFor) token).forIndex = forIndex;
-                continue;
-            }
-            if (token instanceof TokenIf) {
-                ((TokenIf) token).startIndex = ii;
-                ifIndex = ii;
-                elseIndex = ii;
-                continue;
-            }
-            if (token instanceof TokenElse) {
-                ((TokenIf) tokenList.get(elseIndex)).endIndex = ii;
-                ((TokenElse) token).startIndex = ii;
-                elseIndex = ii;
-                continue;
-            }
-            if (token instanceof TokenEndIf) {
-                ((TokenElse) tokenList.get(elseIndex)).endIndex = ii;
-                ((TokenEndIf) token).startIndex = ifIndex;
-                ((TokenEndIf) token).endIndex = ii;
-                continue;
-            }
+        if (stauts == Status.tagEnd) {
+            stauts = Status.contents;
         }
 
-        tokenList.forEach(v -> {
-            System.out.println(v);
-        });
-        System.out.println("-----------------------------------------------------------------------------");
-        render(tokenList, 0, -1, map, null);
+        return moveCursor;
     }
 
     final private void render(List<TokenBase> tokenList, int start, int end, Map<String, Object> map, Object forItem) throws Exception {
@@ -186,8 +203,6 @@ public class TemplateParser {
                     render(tokenList, ii + 1, tokenFor.endIndex, map, iter.next());
                 }
                 ii = tokenFor.endIndex;
-            } else if (token instanceof TokenShape) {
-                append(((TokenShape) token).value);
             }
         }
     }
@@ -198,18 +213,17 @@ public class TemplateParser {
             if (obj1 == obj2) {
                 return true;
             }
-            if (obj1 == null && obj2 != null) {
-                return false;
-            }
-            if (obj1 != null && obj2 == null) {
-                return false;
-            }
-            if (obj1.equals(obj2)) {
+            if (obj1 == null && obj2 == null) {
                 return true;
+            }
+            if (obj1 != null && obj2 != null) {
+                if (obj1.equals(obj2)) {
+                    return true;
+                }
             }
             return false;
         default:
-            return false;
+            throw new RuntimeException("not support cond : " + cond);
         }
     }
 
