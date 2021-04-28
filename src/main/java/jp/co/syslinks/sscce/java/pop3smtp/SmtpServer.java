@@ -1,6 +1,10 @@
 package jp.co.syslinks.sscce.java.pop3smtp;
 
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
@@ -9,49 +13,24 @@ import java.nio.charset.StandardCharsets;
 
 /**
 % telnet some.where.co.jp 25
-
 Trying some.where.co.jp ...
-
 Connected to some.where.co.jp.
-
 Escape character is '^]'.
-
 220 some.computer.com Sendmail 4.1/SMI-4.1 ready at Fri, 13 Nov 98 11:10:10 MDT
-
 > HELO another.place.com
-
 250
-
 > MAIL FROM: jobs@some.computer.co.jp
-
 250 ok
-
 > RCPT TO: gates@some.software.co.jp
-
 250 ok
-
 > DATA
-
 354 Enter mail, end with "." on a line by itself
-
-
-
 > Dear Gates
-
 > I would like to be grateful it if you could buy my company.
-
 > Jobs
-
-
-
 > .
-
-
-
-
-
+250 ok
 > QUIT
-
 250 ok
 
 @see http://research.nii.ac.jp/~ichiro/syspro98/smtp.html
@@ -60,7 +39,6 @@ public class SmtpServer extends SelectorServer {
 
     @Override
     protected void handle(SelectionKey key) throws IOException {
-        //根据不同事件处理
         if (key.isAcceptable()) {
             handleAccept(key);
         } else if (key.isReadable()) {
@@ -70,72 +48,112 @@ public class SmtpServer extends SelectorServer {
         }
     }
 
-    //1 先连接
     private void handleAccept(SelectionKey key) throws IOException {
         SocketChannel channel = ((ServerSocketChannel) key.channel()).accept();
         channel.configureBlocking(false);
-        // channel.register(key.selector(), SelectionKey.OP_READ);
-        channel.register(key.selector(), SelectionKey.OP_WRITE, new PipeData("220 some.computer.com Sendmail 4.1/SMI-4.1 ready at Fri, 13 Nov 98 11:10:10 MDT\n", false));
+        PipeData data = new PipeData(new BufferedOutputStream(new FileOutputStream(new File("r:/11.txt"), true)));
+        data.command = "220 ok\n";
+        channel.register(key.selector(), SelectionKey.OP_WRITE, data);
     }
 
-    final private static class PipeData {
-        final public String value;
-        final public boolean close;
+    private enum SmtpStatus {
+        BeforeMailBody, MailBody, AfterMailBody;
+    }
 
-        public PipeData(String value, boolean close) {
-            this.value = value;
-            this.close = close;
+    private static final class PipeData {
+        final public OutputStream os;
+        public byte[] last4Bytes = new byte[4];
+        public SmtpStatus status = SmtpStatus.BeforeMailBody;
+        public String command;
+        public boolean close = false;
+
+        public PipeData(OutputStream os) {
+            this.os = os;
+        }
+
+        public final void write(byte[] b, int off, int len) throws IOException {
+            this.os.write(b, off, len);
+        }
+
+        public final void close() throws IOException {
+            this.os.flush();
+            this.os.close();
         }
     }
 
-    private boolean isMailBody = false;
-    private StringBuilder mailBody = new StringBuilder();
+    private static final int buffSize = 16;
 
-    //2 再读取
     private void handleRead(SelectionKey key) throws IOException {
         SocketChannel channel = (SocketChannel) key.channel();
         channel.configureBlocking(false);
-        ByteBuffer buffer = ByteBuffer.allocate(64);
-        StringBuilder builder = new StringBuilder();
-        while (channel.read(buffer) > 0) {
+        PipeData data = (PipeData) key.attachment();
+        data.command = null;
+        data.close = false;
+
+        final ByteBuffer buffer = ByteBuffer.allocate(buffSize);
+        final StringBuilder builder = new StringBuilder();
+        final byte[] buffArray = new byte[buffSize];
+        int read = -1;
+        while ((read = channel.read(buffer)) > 0) {
+            // System.err.println(read);
             buffer.flip();
-            builder.append(StandardCharsets.UTF_8.decode(buffer).toString());
+            buffer.get(buffArray, 0, read);
+            if (data.status == SmtpStatus.MailBody) {
+                // System.out.print(new String(buffArray, 0, read));
+                data.write(buffArray, 0, read);
+                if (read >= 4) {
+                    if (buffArray[read - 3] == '.' && buffArray[read - 4] == '\n') {
+                        data.status = SmtpStatus.AfterMailBody;
+                        data.command = "250 OK\n";
+                    }
+                } else {
+                    System.err.println(read);
+                }
+            } else {
+                for (int ii = 0; ii < read; ii++) {
+                    byte bb = buffArray[ii];
+                    if (bb == '\r') { // 13
+                        continue;
+                    }
+                    if (bb == '\n') { // 10
+                        data.command = "250 OK\n";
+                        final String commnad = builder.toString();
+                        System.out.println("> " + commnad);
+                        if (commnad.startsWith("EHLO ")) {
+                        } else if (commnad.startsWith("MAIL FROM:")) {
+                        } else if (commnad.startsWith("RCPT TO:")) {
+                        } else if (commnad.equals("RSET")) {
+                        } else if (commnad.equals("DATA")) {
+                            data.command = "354 Enter mail, end with \".\" on a line by itself\n";
+                            data.status = SmtpStatus.MailBody;
+                        } else if (commnad.equals("QUIT")) {
+                            data.close = true;
+                        }
+                        builder.setLength(0);
+                        continue;
+                    }
+                    builder.append((char) bb);
+                }
+            }
             buffer.clear();
         }
-        System.out.print(builder);
-        //        String resp = RedisHandler.handleCmd(builder.toString()); //redis逻辑处理完成，然后进行返回给客户端
-        String result = "250 OK\n";
-        boolean close = false;
-        if (isMailBody) {
-            mailBody.append(builder);
-            isMailBody = false;
+        if (data.command == null) {
+            channel.register(key.selector(), SelectionKey.OP_READ, data);
+        } else {
+            channel.register(key.selector(), SelectionKey.OP_WRITE, data);
         }
-        if (builder.toString().startsWith("EHLO ")) {
-        } else if (builder.toString().startsWith("MAIL FROM:")) {
-        } else if (builder.toString().startsWith("RCPT TO:")) {
-        } else if (builder.toString().equals("RSET\r\n")) {
-        } else if (builder.toString().equals("DATA\r\n")) {
-            result = "354 Enter mail, end with \".\" on a line by itself\n";
-            isMailBody = true;
-        } else if (builder.toString().equals("QUIT\r\n")) {
-            System.out.println("--------------------------------");
-            System.out.println(mailBody.toString());
-            System.out.println("--------------------------------");
-            close = true;
-        }
-        channel.register(key.selector(), SelectionKey.OP_WRITE, new PipeData(result, close)); //结果放到attachment
     }
 
-    //3 最后写
     private void handleWrite(SelectionKey key) throws IOException {
         SocketChannel channel = (SocketChannel) key.channel();
         channel.configureBlocking(false);
-        PipeData data = (PipeData) key.attachment(); //获取到结果数据
-        channel.write(ByteBuffer.wrap(data.value.getBytes(StandardCharsets.UTF_8)));
+        PipeData data = (PipeData) key.attachment();
+        channel.write(ByteBuffer.wrap(data.command.getBytes(StandardCharsets.UTF_8)));
         if (data.close) {
-            channel.close(); //写入并关闭channel
+            data.close();
+            channel.close();
         } else {
-            channel.register(key.selector(), SelectionKey.OP_READ);
+            channel.register(key.selector(), SelectionKey.OP_READ, data);
         }
     }
 

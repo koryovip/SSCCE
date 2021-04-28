@@ -10,12 +10,16 @@ import java.util.Iterator;
 public abstract class SelectorServer {
 
     public void start(int port) {
+        start("0.0.0.0", port);
+    }
+
+    public void start(String hostname, int port) {
         try (ServerSocketChannel serverChannel = ServerSocketChannel.open();) {
-            serverChannel.bind(new InetSocketAddress("0.0.0.0", port)); //绑定ip和端口
+            serverChannel.bind(new InetSocketAddress(hostname, port)); //绑定ip和端口
             serverChannel.configureBlocking(false); //设置非阻塞,nio特性
             Selector selector = Selector.open();
             serverChannel.register(selector, SelectionKey.OP_ACCEPT); //处理连接进入事件
-            while (true) {
+            for (;;) {
                 selector.select();
                 Iterator<SelectionKey> iterator = selector.selectedKeys().iterator(); //触发的事件集合
                 while (iterator.hasNext()) {
