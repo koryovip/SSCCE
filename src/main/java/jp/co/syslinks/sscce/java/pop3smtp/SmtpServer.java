@@ -81,7 +81,7 @@ public class SmtpServer extends SelectorServer {
         }
     }
 
-    private static final int buffSize = 16;
+    private static final int buffSize = 10 * 1024;
 
     private void handleRead(SelectionKey key) throws IOException {
         SocketChannel channel = (SocketChannel) key.channel();
@@ -95,19 +95,38 @@ public class SmtpServer extends SelectorServer {
         final byte[] buffArray = new byte[buffSize];
         int read = -1;
         while ((read = channel.read(buffer)) > 0) {
-            // System.err.println(read);
             buffer.flip();
             buffer.get(buffArray, 0, read);
             if (data.status == SmtpStatus.MailBody) {
-                // System.out.print(new String(buffArray, 0, read));
+                /*if (read < 4) {
+                    System.err.println(read);
+                }
+                System.out.print(new String(buffArray, 0, read));
+                */
                 data.write(buffArray, 0, read);
                 if (read >= 4) {
-                    if (buffArray[read - 3] == '.' && buffArray[read - 4] == '\n') {
-                        data.status = SmtpStatus.AfterMailBody;
-                        data.command = "250 OK\n";
-                    }
+                    System.arraycopy(buffArray, read - 4, data.last4Bytes, 0, 4);
+                } else if (read == 3) {
+                    data.last4Bytes[0] = data.last4Bytes[3];
+                    data.last4Bytes[1] = buffArray[0];
+                    data.last4Bytes[2] = buffArray[1];
+                    data.last4Bytes[3] = buffArray[2];
+                } else if (read == 2) {
+                    data.last4Bytes[0] = data.last4Bytes[2];
+                    data.last4Bytes[1] = data.last4Bytes[3];
+                    data.last4Bytes[2] = buffArray[0];
+                    data.last4Bytes[3] = buffArray[1];
+                } else if (read == 1) {
+                    data.last4Bytes[0] = data.last4Bytes[2];
+                    data.last4Bytes[1] = data.last4Bytes[3];
+                    data.last4Bytes[2] = data.last4Bytes[4];
+                    data.last4Bytes[3] = buffArray[0];
                 } else {
-                    System.err.println(read);
+                    throw new RuntimeException("read =0");
+                }
+                if (data.last4Bytes[0] == '\n' && data.last4Bytes[1] == '.') {
+                    data.status = SmtpStatus.AfterMailBody;
+                    data.command = "250 OK\n";
                 }
             } else {
                 for (int ii = 0; ii < read; ii++) {
