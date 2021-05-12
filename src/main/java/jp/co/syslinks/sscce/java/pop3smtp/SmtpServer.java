@@ -11,6 +11,8 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 
+import jp.co.syslinks.sscce.java.utils.SnowFlake;
+
 /**
 % telnet some.where.co.jp 25
 Trying some.where.co.jp ...
@@ -51,7 +53,9 @@ public class SmtpServer extends SelectorServer {
     private void handleAccept(SelectionKey key) throws IOException {
         SocketChannel channel = ((ServerSocketChannel) key.channel()).accept();
         channel.configureBlocking(false);
-        PipeData data = new PipeData(new BufferedOutputStream(new FileOutputStream(new File("r:/11.txt"), true)));
+        SnowFlake snowFlake = new SnowFlake(2, 3);
+        String id = Long.toString(snowFlake.nextId());
+        PipeData data = new PipeData(new BufferedOutputStream(new FileOutputStream(new File("_mail/data/" + id), true)));
         data.command = "220 ok\n";
         channel.register(key.selector(), SelectionKey.OP_WRITE, data);
     }

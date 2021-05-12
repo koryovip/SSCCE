@@ -1,5 +1,8 @@
 package jp.co.syslinks.sscce.java.pop3smtp;
 
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
@@ -47,59 +50,107 @@ public class Pop3Server extends SelectorServer {
     private void handleAccept(SelectionKey key) throws IOException {
         SocketChannel channel = ((ServerSocketChannel) key.channel()).accept();
         channel.configureBlocking(false);
-        // channel.register(key.selector(), SelectionKey.OP_READ);
-        channel.register(key.selector(), SelectionKey.OP_WRITE, new PipeData("+OK POP3 server ready\n", false));
+        PipeData data = new PipeData();
+        data.command = "+OK POP3 server ready\n";
+        channel.register(key.selector(), SelectionKey.OP_WRITE, data);
     }
 
     final private static class PipeData {
-        final public String value;
-        final public boolean close;
+        public String command;
+        public boolean close = false;
 
-        public PipeData(String value, boolean close) {
-            this.value = value;
-            this.close = close;
+        public PipeData() {
+        }
+
+        public final void close() throws IOException {
+
         }
     }
 
-    //2 再读取
+    private static final int buffSize = 10 * 1024;
+
     private void handleRead(SelectionKey key) throws IOException {
         SocketChannel channel = (SocketChannel) key.channel();
         channel.configureBlocking(false);
-        ByteBuffer buffer = ByteBuffer.allocate(64);
-        StringBuilder builder = new StringBuilder();
-        while (channel.read(buffer) > 0) {
+        PipeData data = (PipeData) key.attachment();
+        data.command = null;
+        data.close = false;
+
+        final ByteBuffer buffer = ByteBuffer.allocate(buffSize);
+        final StringBuilder builder = new StringBuilder();
+        final byte[] buffArray = new byte[buffSize];
+        int read = -1;
+        while ((read = channel.read(buffer)) > 0) {
             buffer.flip();
-            builder.append(StandardCharsets.UTF_8.decode(buffer).toString());
+            buffer.get(buffArray, 0, read);
+            for (int ii = 0; ii < read; ii++) {
+                byte bb = buffArray[ii];
+                if (bb == '\r') { // 13
+                    continue;
+                }
+                if (bb == '\n') { // 10
+                    data.command = "+OK\n";
+                    final String commnad = builder.toString();
+                    System.out.println("> " + commnad);
+
+                    if (commnad.startsWith("USER ")) {
+                    } else if (commnad.startsWith("PASS ")) {
+                    } else if (commnad.equals("STAT")) {
+                    } else if (commnad.equals("NOOP")) {
+                    } else if (commnad.equals("LIST")) {
+                        StringBuilder sb = new StringBuilder();
+                        int index = 1;
+                        for (File file : new File("_mail/data").listFiles()) {
+                            sb.append(index++).append(" ").append(file.length()).append("\n");
+                        }
+                        sb.append(".\n");
+                        data.command += sb.toString();
+                    } else if (commnad.equals("UIDL")) {
+                        StringBuilder sb = new StringBuilder();
+                        int index = 1;
+                        for (File file : new File("_mail/data").listFiles()) {
+                            sb.append(index++).append(" ").append(file.getName()).append("\n");
+                        }
+                        sb.append(".\n");
+                        data.command += sb.toString();
+                    } else if (commnad.startsWith("RETR ")) {
+                        int index = Integer.parseInt(commnad.substring("RETR ".length()));
+                        channel.write(ByteBuffer.wrap("+OK\n".getBytes(StandardCharsets.UTF_8)));
+                        try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(new File("_mail/data").listFiles()[index - 1]))) {
+                            int flen = 1024;
+                            byte[] fileBuff = new byte[flen];
+                            int rd = -1;
+                            while ((rd = bis.read(fileBuff, 0, flen)) > 0) {
+                                channel.write(ByteBuffer.wrap(fileBuff, 0, rd));
+                            }
+                        }
+                    } else if (commnad.equals("QUIT")) {
+                        data.close = true;
+                    }
+                    builder.setLength(0);
+                    continue;
+                }
+                builder.append((char) bb);
+            }
             buffer.clear();
         }
-        System.out.print(builder);
-        //        String resp = RedisHandler.handleCmd(builder.toString()); //redis逻辑处理完成，然后进行返回给客户端
-        String result = "+OK\n";
-        boolean close = false;
-        if (builder.toString().startsWith("USER ")) {
-        } else if (builder.toString().startsWith("PASS ")) {
-        } else if (builder.toString().equals("STAT\r\n")) {
-        } else if (builder.toString().equals("LIST\r\n")) {
-            result += ".\n";
-        } else if (builder.toString().equals("UIDL\r\n")) {
-            result += ".\n";
-        } else if (builder.toString().equals("QUIT\r\n")) {
-            close = true;
-        } else if (builder.toString().equals("NOOP\r\n")) {
+        if (data.command == null) {
+            channel.register(key.selector(), SelectionKey.OP_READ, data);
+        } else {
+            channel.register(key.selector(), SelectionKey.OP_WRITE, data);
         }
-        channel.register(key.selector(), SelectionKey.OP_WRITE, new PipeData(result, close)); //结果放到attachment
     }
 
-    //3 最后写
     private void handleWrite(SelectionKey key) throws IOException {
         SocketChannel channel = (SocketChannel) key.channel();
         channel.configureBlocking(false);
-        PipeData data = (PipeData) key.attachment(); //获取到结果数据
-        channel.write(ByteBuffer.wrap(data.value.getBytes(StandardCharsets.UTF_8)));
+        PipeData data = (PipeData) key.attachment();
+        channel.write(ByteBuffer.wrap(data.command.getBytes(StandardCharsets.UTF_8)));
         if (data.close) {
-            channel.close(); //写入并关闭channel
+            data.close();
+            channel.close();
         } else {
-            channel.register(key.selector(), SelectionKey.OP_READ);
+            channel.register(key.selector(), SelectionKey.OP_READ, data);
         }
     }
 

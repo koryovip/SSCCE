@@ -22,7 +22,7 @@ public class ClassFileSample {
     private final double dmin = Double.MIN_VALUE;
 
     public static void main(String[] args) throws FileNotFoundException, IOException {
-
+        System.out.println("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     }
 
     private static final String s1 = "";
