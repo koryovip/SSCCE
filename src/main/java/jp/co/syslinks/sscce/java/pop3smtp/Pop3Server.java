@@ -90,14 +90,36 @@ public class Pop3Server extends SelectorServer {
                 }
                 if (bb == '\n') { // 10
                     data.command = "+OK\n";
-                    final String commnad = builder.toString();
-                    System.out.println("> " + commnad);
+                    final String command = builder.toString();
+                    System.out.println("> " + command);
 
-                    if (commnad.startsWith("USER ")) {
-                    } else if (commnad.startsWith("PASS ")) {
-                    } else if (commnad.equals("STAT")) {
-                    } else if (commnad.equals("NOOP")) {
-                    } else if (commnad.equals("LIST")) {
+                    if (command.startsWith("USER ")) {
+                    } else if (command.startsWith("PASS ")) {
+                    } else if (command.equals("NOOP")) {
+                    } else if (command.equals("STAT")) {
+                        int mailCount = 0;
+                        long mailLength = 0;
+                        for (File file : new File("_mail/data").listFiles()) {
+                            mailCount++;
+                            mailLength += file.length();
+                        }
+                        data.command = "+OK " + mailCount + " " + mailLength + "\n";
+                    } else if (command.equals("CAPA")) {
+                        StringBuilder sb = new StringBuilder();
+                        sb.append("+OK Capability list follows\r\n");
+                        //sb.append("TOP\r\n");
+                        sb.append("USER\r\n");
+                        //sb.append("SASL CRAM-MD5 KERBEROS_V4\r\n");
+                        //sb.append("RESP-CODES\r\n");
+                        sb.append("LOGIN-DELAY 900\r\n");
+                        sb.append("EXPIRE 60\r\n");
+                        sb.append("UIDL\r\n");
+                        //sb.append("IMPLEMENTATION Shlemazle-Plotz-v302\r\n");
+                        sb.append(".\r\n");
+                        data.command = sb.toString();
+                    } else if (command.startsWith("TOP ")) {
+                        throw new RuntimeException("NOT support Command:" + command);
+                    } else if (command.equals("LIST")) {
                         StringBuilder sb = new StringBuilder();
                         int index = 1;
                         for (File file : new File("_mail/data").listFiles()) {
@@ -105,7 +127,7 @@ public class Pop3Server extends SelectorServer {
                         }
                         sb.append(".\n");
                         data.command += sb.toString();
-                    } else if (commnad.equals("UIDL")) {
+                    } else if (command.equals("UIDL")) {
                         StringBuilder sb = new StringBuilder();
                         int index = 1;
                         for (File file : new File("_mail/data").listFiles()) {
@@ -113,8 +135,8 @@ public class Pop3Server extends SelectorServer {
                         }
                         sb.append(".\n");
                         data.command += sb.toString();
-                    } else if (commnad.startsWith("RETR ")) {
-                        int index = Integer.parseInt(commnad.substring("RETR ".length()));
+                    } else if (command.startsWith("RETR ")) {
+                        int index = Integer.parseInt(command.substring("RETR ".length()));
                         channel.write(ByteBuffer.wrap("+OK\n".getBytes(StandardCharsets.UTF_8)));
                         try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(new File("_mail/data").listFiles()[index - 1]))) {
                             int flen = 1024;
@@ -124,7 +146,7 @@ public class Pop3Server extends SelectorServer {
                                 channel.write(ByteBuffer.wrap(fileBuff, 0, rd));
                             }
                         }
-                    } else if (commnad.equals("QUIT")) {
+                    } else if (command.equals("QUIT")) {
                         data.close = true;
                     }
                     builder.setLength(0);
