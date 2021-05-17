@@ -25,7 +25,7 @@ public class ClassFileSample {
         System.out.println("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     }
 
-    private static final String s1 = "";
+    private static final String s1 = "あ";
     /*
     private static final String s2 = "";
     private static final String s3 = "";
