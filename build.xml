@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<project name="HelloWorldAnt" default="makeJar" basedir=".">
+	<property name="dir.target" value="target" />
+	<property name="dir.target.classes" value="${dir.target}/classes" />
+	<property name="dir.target.resources" value="${dir.target}/resources" />
+	<property name="dir.target.dependency" value="${dir.target}/dependency" />
+	<property name="dir.lib" value="lib" />
+	<property name="dir.src" value="src/test/java" />
+	<property name="src.enc" value="UTF-8" />
+
+	<path id="build.lib">
+		<fileset dir="${dir.lib}">
+			<include name="*" />
+		</fileset>
+	</path>
+
+	<!-- JARファイル作成(開発用) -->
+	<target name="makeJar" description="開発用JARファイル作成" depends="filecopy">
+		<!-- 作業用ディレクトリのcleanup -->
+		<antcall target="clean" />
+		<antcall target="compile" />
+		<echo message="JARファイルを作成します。" />
+		<jar basedir="${dir.target.classes}" destfile="${base}/${dir.target}/${jarname}.jar" />
+		<!--
+		<antcall target="filecopy">
+			<param name="dir.env" value="${dir.resources}" />
+		</antcall>
+		-->
+	</target>
+
+	<!-- クラスファイル以外の必要なファイルのコピー -->
+	<target name="filecopy" description="クラスファイル以外の必要なファイルのコピー" depends="compile">
+		<echo message="クラスファイル以外の必要なファイルのコピーを行います。" />
+		<!-- 古いファイルを削除 -->
+		<delete file="${dir.target.resources}/*" />
+		<delete file="${dir.target.dependency}/*" />
+		<!-- 新しいフォルダを作成 -->
+		<mkdir dir="${dir.target.resources}" />
+		<mkdir dir="${dir.target.dependency}" />
+		<!-- resourceファイルをコピー -->
+		<copy todir="${dir.target.resources}">
+			<fileset dir="${dir.env}">
+				<include name="*" />
+			</fileset>
+		</copy>
+		<!-- 依存性のあるファイルをコピー -->
+		<copy todir="${dir.target.dependency}">
+			<fileset dir="${dir.lib}">
+				<include name="*" />
+			</fileset>
+		</copy>
+	</target>
+
+	<target name="compile" description="コンパイル" depends="clean">
+		<echo message="コンパイルを開始します。" />
+		<mkdir dir="${dir.target.classes}" />
+		<javac classpathref="build.lib" srcdir="${dir.src}" destdir="${dir.target.classes}" encoding="${src.enc}" source="1.8" target="1.8" includeAntRuntime="false" debug="true" />
+	</target>
+
+	<target name="clean" description="ビルド成果物削除">
+		<echo message="クリアします。" />
+		<delete dir="${dir.target}" />
+	</target>
+</project>
