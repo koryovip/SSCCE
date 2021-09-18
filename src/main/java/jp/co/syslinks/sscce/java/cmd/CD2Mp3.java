@@ -50,7 +50,7 @@ public class CD2Mp3 {
             cmd.add("ffmpeg.exe");
             // cmd.add("-h");
             cmd.add("-y"); // 上書き確認しない
-            cmd.add("-loglevel"); // loglevel
+            cmd.add("-loglevel"); // loglevel debug verbose info warning error fatal panic quiet
             cmd.add("error");
             cmd.add("-f");
             cmd.add("libcdio");
