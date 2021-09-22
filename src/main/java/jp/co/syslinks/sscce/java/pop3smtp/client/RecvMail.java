@@ -14,6 +14,8 @@ import javax.mail.Store;
 import javax.mail.internet.MimeMultipart;
 import javax.mail.internet.MimeUtility;
 
+import jp.secret.YahooMailSecretKeys;
+
 public class RecvMail {
 
     public static void main(String[] args) {
@@ -21,16 +23,27 @@ public class RecvMail {
         try {
             // メール受信のプロパティ設定
             Properties props = new Properties();
-            // props.put("mail.pop3.host", "pop.mail.yahoo.co.jp");
-            props.put("mail.pop3.host", "127.0.0.1");
-            props.put("mail.pop3.port", "110");
+            //com.sun.mail.util.MailSSLSocketFactory socketFactory = new com.sun.mail.util.MailSSLSocketFactory();
+            //socketFactory.setTrustAllHosts(true);
+            //props.put("mail.pop3.ssl.socketFactory", socketFactory);
+
+            props.put("mail.pop3.host", "pop.mail.yahoo.co.jp");
+            props.put("mail.pop3.port", "995");
+            props.put("mail.pop3.ssl.enable", "true");
+
+            //props.put("mail.pop3.host", "127.0.0.1");
+            //props.put("mail.pop3.port", "110");
             //props.put("mail.mime.encodefilename", "true");
             //props.put("mail.mime.charset", "UTF-8");
+            //props.put("mail.pop3.starttls.enable", "true");
+            //props.put("mail.pop3.starttls.required", "true");
+            //props.put("mail.pop3.ssl.trust", "*");
 
             // メール受信フォルダをオープン
             Session session = Session.getDefaultInstance(props);
+            session.setDebug(true);
             try (Store store = session.getStore("pop3");) {
-                store.connect("address", "password");
+                store.connect(YahooMailSecretKeys.me.user(), YahooMailSecretKeys.me.pass());
                 try (Folder folderInbox = store.getFolder("INBOX");) {
                     folderInbox.open(Folder.READ_ONLY);
                     // メッセージ一覧を取得
