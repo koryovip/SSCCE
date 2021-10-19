@@ -1,0 +1,42 @@
+pipeline {
+  agent any
+  parameters {
+    choice(name: 'door_choice',
+      choices: 'one\ntwo\nthree\nfour',
+      description: 'What door do you choose?')
+    booleanParam(name: 'CAN_DANCE',
+      defaultValue: true,
+      description: 'Checkbox parameter')
+    string(name: 'sTrAnGePaRaM',
+      defaultValue: '日本語',
+      description: 'Do the funky chicken!')
+  }
+  stages {
+    stage('Example') {
+      steps {
+        echo 'Hello World!'
+        echo "Trying: ${params.door_choice}"
+        echo "We can dance: ${params.CAN_DANCE}"
+        echo "The DJ says: ${params.sTrAnGePaRaM}"
+      }
+    }
+    stage('Example Deploy1') {
+        when { expression { return params.CAN_DANCE } }
+        steps {
+            echo 'CAN_DANCE'
+        }
+    }
+    stage('Example Deploy2') {
+        steps {
+            catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                bat "exit 1"
+            }
+        }
+    }
+    stage('release') {
+        steps {
+            echo 'release'
+        }
+    }
+  }
+}
