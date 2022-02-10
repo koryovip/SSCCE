@@ -15,7 +15,7 @@ public abstract class PackageScanner {
 
     private final String dotClass = ".class";
 
-    private void scanPackage(String packageName, File currentFile) {
+    private void scanPackage(String packageName, File currentFile, ClassLoader classloader) {
         // File[] fileList;
         for (File file : currentFile.listFiles(pathName -> {
             if (pathName.isDirectory()) {
@@ -24,13 +24,13 @@ public abstract class PackageScanner {
             return pathName.getName().endsWith(dotClass);
         })) {
             if (file.isDirectory()) {
-                this.scanPackage(packageName + "." + file.getName(), file);
+                this.scanPackage(packageName + "." + file.getName(), file, classloader);
                 continue;
             }
             String fileName = file.getName().replace(dotClass, "");
             String className = packageName + "." + fileName;
             try {
-                Class<?> clazz = Class.forName(className);
+                Class<?> clazz = Class.forName(className, false, classloader); // do not init static
                 if (clazz.isAnnotation() || clazz.isEnum() || clazz.isPrimitive() /*|| clazz.isInterface()*/) {
                     continue;
                 }
@@ -42,7 +42,7 @@ public abstract class PackageScanner {
         }
     }
 
-    private void scanPackage(URL url) throws IOException {
+    private void scanPackage(URL url, ClassLoader classloader) throws IOException {
         JarURLConnection urlConnection = (JarURLConnection) url.openConnection();
         JarFile jarfile = urlConnection.getJarFile();
         Enumeration<JarEntry> jarEntries = jarfile.entries();
@@ -54,7 +54,7 @@ public abstract class PackageScanner {
             }
             String className = jarName.replace(dotClass, "").replaceAll("/", ".");
             try {
-                Class<?> clazz = Class.forName(className);
+                Class<?> clazz = Class.forName(className, false, classloader); // do not init static
                 if (clazz.isAnnotation() || clazz.isEnum() || clazz.isPrimitive() /*|| clazz.isInterface()*/) {
                     continue;
                 }
@@ -78,14 +78,14 @@ public abstract class PackageScanner {
             while (resources.hasMoreElements()) {
                 URL url = resources.nextElement();
                 if (url.getProtocol().equals("jar")) {
-                    this.scanPackage(url);
+                    this.scanPackage(url, classloader);
                     continue;
                 }
                 File file = new File(url.toURI());
                 if (!file.exists()) {
                     continue;
                 }
-                this.scanPackage(packageName, file);
+                this.scanPackage(packageName, file, classloader);
             }
         } catch (IOException | URISyntaxException e) {
             e.printStackTrace();
