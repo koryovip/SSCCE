@@ -24,7 +24,7 @@ public class Javaalmanac {
                 .timeout(10_100) // timeout 大事。長くすること
                 .maxBodySize(0) // 大事。0にすること
                 .method(org.jsoup.Connection.Method.GET) //
-                .execute().parse().text();
+                .execute().body();
         JavaAPIDiff diff = objectMapper.readValue(json, JavaAPIDiff.class);
         diff.deltas.forEach(delta1 -> {
             delta1.deltas.forEach(delta2 -> { // package
