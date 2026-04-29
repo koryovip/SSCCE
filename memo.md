@@ -1,6 +1,6 @@
-https://packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/jediterm/
-https://packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/jediterm/jediterm-core/
-https://packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/jediterm/jediterm-ui/
+- https://packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/jediterm/
+- https://packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/jediterm/jediterm-core/
+- https://packages.jetbrains.team/maven/p/ij/intellij-dependencies/org/jetbrains/jediterm/jediterm-ui/
 
 ```xml
 <repositories>
