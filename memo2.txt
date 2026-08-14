@@ -1,0 +1,59 @@
+DECLARE
+    l_table_name    VARCHAR2(128);
+    l_sql           CLOB;
+    l_col_list      CLOB;
+    l_val_list      CLOB;
+    l_col_count     NUMBER := 0;
+BEGIN
+    -- 1. セキュリティ対策: パラメータの検証（SQLインジェクション防止）
+    -- :table_name が現在のスキーマに存在するテーブル/ビューであるか確認します
+    l_table_name := DBMS_ASSERT.SQL_OBJECT_NAME(UPPER(:table_name));
+
+    -- 2. INSERT文の基盤作成
+    l_sql := 'INSERT INTO ' || l_table_name || ' (';
+
+    -- 3. データ・ディクショナリからテーブルの列情報を取得し、マッピングを自動生成
+    FOR rec IN (
+        SELECT column_name, column_id
+          FROM user_tab_columns
+         WHERE table_name = l_table_name
+         ORDER BY column_id
+    ) LOOP
+        l_col_count := l_col_count + 1;
+
+        IF l_col_count > 1 THEN
+            l_col_list := l_col_list || ', ';
+            l_val_list := l_val_list || ', ';
+        END IF;
+
+        -- 実際のテーブルの列名
+        l_col_list := l_col_list || rec.column_name;
+        
+        -- CSVパーサー側の列名 (col001, col002, ... col300) を生成
+        l_val_list := l_val_list || 'col' || LPAD(l_col_count, 3, '0');
+    END LOOP;
+
+    -- 対象テーブルが存在しない、または列がない場合のエラーハンドリング
+    IF l_col_count = 0 THEN
+        raise_application_error(-20001, 'テーブルが見つからないか、アクセス権限がありません。');
+    END IF;
+
+    -- 4. 動的SQLの組み立て
+    l_sql := l_sql || l_col_list || ') SELECT ' || l_val_list ||
+             ' FROM TABLE(apex_data_parser.parse(' ||
+             ' p_content => :1, ' ||       -- バインド変数として後で渡す
+             ' p_file_name => ''import.csv'', ' ||
+             ' p_skip_rows => 1))';        -- 1行目はヘッダーとしてスキップ
+
+    -- 5. 動的SQLの実行 (:bodyのBLOBデータを :1 にバインド)
+    EXECUTE IMMEDIATE l_sql USING :body;
+
+    -- 正常終了 (201 Created)
+    :status := 201;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        -- エラーハンドリング (400 Bad Request)
+        :status := 400;
+        -- 実際の運用ではエラーメッセージをレスポンスボディに返す設定も推奨されます
+END;
