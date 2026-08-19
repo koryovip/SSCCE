@@ -1,0 +1,29 @@
+DECLARE
+  l_context apex_exec.t_context;
+  l_export  apex_data_export.t_export;
+BEGIN
+  -- ORDSはAPEXアプリのセッション外で動くため、まずセッションを作る
+  apex_session.create_session(
+    p_app_id   => 100,          -- ワークスペース内の任意のアプリID
+    p_page_id  => 0,
+    p_username => 'YOUR_SCHEMA'
+  );
+
+  l_context := apex_exec.open_query_context(
+    p_location  => apex_exec.c_location_local_db,
+    p_sql_query => 'SELECT id, name, created_date FROM your_table ORDER BY id'
+  );
+
+  l_export := apex_data_export.export(
+    p_context => l_context,
+    p_format  => apex_data_export.c_format_csv
+  );
+
+  apex_data_export.download(
+    p_export              => l_export,
+    p_content_disposition => apex_data_export.c_attachment,
+    p_stop_apex_engine    => FALSE  -- ORDSハンドラー内なのでFALSEにする
+  );
+
+  apex_exec.close(l_context);
+END;
