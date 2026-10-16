@@ -1,0 +1,51 @@
+import ast, io, sys, token, tokenize
+from pathlib import Path
+
+FS = getattr(token, "FSTRING_START", None)
+FE = getattr(token, "FSTRING_END", None)
+
+def docstring_spans(src):
+    spans = []
+    for node in ast.walk(ast.parse(src)):
+        if isinstance(node, (ast.Module, ast.ClassDef,
+                             ast.FunctionDef, ast.AsyncFunctionDef)):
+            b = node.body
+            if (b and isinstance(b[0], ast.Expr)
+                    and isinstance(b[0].value, ast.Constant)
+                    and isinstance(b[0].value.value, str)):
+                v = b[0].value
+                spans.append(((v.lineno, v.col_offset), v.end_lineno))
+    return spans
+
+def cut(lines, s, e):
+    if s[0] == e[0]:
+        return lines[s[0]-1][s[1]:e[1]]
+    return (lines[s[0]-1][s[1]:]
+            + "".join(lines[s[0]:e[0]-1])
+            + lines[e[0]-1][:e[1]])
+
+def scan(path):
+    src = tokenize.open(path).read()
+    lines = src.splitlines(keepends=True)
+    spans = docstring_spans(src)
+    is_doc = lambda pos: any(pos >= s and pos[0] <= e for s, e in spans)
+
+    depth, start = 0, None
+    for t in tokenize.generate_tokens(io.StringIO(src).readline):
+        if FS and t.type == FS:
+            if depth == 0:
+                start = t.start
+            depth += 1
+        elif FE and t.type == FE:
+            depth -= 1
+            if depth == 0 and not is_doc(start):
+                print(f"{path}:{start[0]}: {cut(lines, start, t.end)}")
+        elif t.type == token.STRING and depth == 0 and not is_doc(t.start):
+            print(f"{path}:{t.start[0]}: {t.string}")
+
+for p in sys.argv[1:]:
+    for f in (Path(p).rglob("*.py") if Path(p).is_dir() else [Path(p)]):
+        try:
+            scan(f)
+        except SyntaxError as e:
+            print(f"{f}: skipped ({e})", file=sys.stderr)
