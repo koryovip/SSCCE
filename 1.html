@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>算数[2] 台形の中の三角形の面積</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+    }
+    .svg-transition {
+      transition: all 0.4s ease-in-out;
+    }
+    input[type=range] {
+      accent-color: #f97316;
+    }
+  </style>
+</head>
+<body class="bg-amber-50 min-h-screen p-3 md:p-6 text-slate-800">
+  <div class="max-w-3xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border-2 border-amber-200">
+    
+    <!-- ヘッダー -->
+    <div class="bg-gradient-to-r from-amber-500 to-orange-500 text-white p-4 md:p-6 text-center">
+      <span class="inline-block bg-white text-orange-600 font-extrabold px-3 py-1 rounded-full text-xs md:text-sm mb-2 shadow-sm">
+        目で見てナットク！図解アプリ
+      </span>
+      <h1 class="text-xl md:text-2xl font-extrabold tracking-tight">
+        問題 [2] 三角形DEFの面積はなぜ 48cm²？
+      </h1>
+    </div>
+
+    <!-- モード切り替えタブ -->
+    <div class="flex border-b-2 border-amber-100 bg-amber-50/50 p-2 gap-2">
+      <button id="tab-method1" onclick="switchMode(1)" class="flex-1 py-3 px-4 rounded-2xl font-bold text-sm md:text-base transition-all bg-orange-500 text-white shadow-md">
+        🌟 解き方①：補助線で2つに分ける（王道）
+      </button>
+      <button id="tab-method2" onclick="switchMode(2)" class="flex-1 py-3 px-4 rounded-2xl font-bold text-sm md:text-base transition-all bg-white text-slate-600 hover:bg-orange-100">
+        🚀 解き方②：形を変えてみる（裏ワザ実験）
+      </button>
+    </div>
+
+    <div class="p-4 md:p-6">
+      <!-- SVG キャンバスエリア -->
+      <div class="relative bg-slate-50 rounded-2xl border-2 border-slate-200 p-2 md:p-4 mb-6 flex justify-center items-center shadow-inner">
+        <svg id="geometry-svg" viewBox="0 0 560 340" class="w-full max-w-[540px] h-auto select-none">
+          <!-- 背景のグリッド（長方形モード等で視覚的にわかりやすくするため） -->
+          <defs>
+            <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+              <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+            </pattern>
+          </defs>
+          <rect width="560" height="340" fill="url(#grid)" />
+
+          <!-- 高さの補助線・ガイド -->
+          <g id="height-guides" opacity="0.5">
+            <line id="guide-top" x1="80" y1="50" x2="480" y2="50" stroke="#94a3b8" stroke-dasharray="4,4" stroke-width="1.5"/>
+            <line id="guide-bottom" x1="80" y1="290" x2="480" y2="290" stroke="#94a3b8" stroke-dasharray="4,4" stroke-width="1.5"/>
+          </g>
+
+          <!-- 各三角形のポリゴン -->
+          <!-- △AED (左上・外) -->
+          <polygon id="poly-AED" points="190,50 130,194 340,50" fill="#f1f5f9" stroke="#64748b" stroke-width="2" class="svg-transition"/>
+          <!-- △EBF (左下・外) -->
+          <polygon id="poly-EBF" points="130,194 90,290 330,290" fill="#f1f5f9" stroke="#64748b" stroke-width="2" class="svg-transition"/>
+          <!-- △DFC (右下・外) -->
+          <polygon id="poly-DFC" points="340,50 330,290 450,290" fill="#f1f5f9" stroke="#64748b" stroke-width="2" class="svg-transition"/>
+
+          <!-- △DEF (真ん中・求める三角形) を2つに分割したポリゴンと全体ポリゴン -->
+          <!-- △EBD (左上・内) -->
+          <polygon id="poly-EBD" points="130,194 90,290 340,50" fill="#fed7aa" stroke="none" class="svg-transition"/>
+          <!-- △BDF のうち △EDF (右下・内) -->
+          <polygon id="poly-EDF" points="130,194 330,290 340,50" fill="#fed7aa" stroke="none" class="svg-transition"/>
+          
+          <!-- △DEF の外枠 -->
+          <polygon id="poly-DEF-outline" points="340,50 130,194 330,290" fill="none" stroke="#ea580c" stroke-width="3.5" stroke-linejoin="round" class="svg-transition"/>
+
+          <!-- 台形全体の外枠 -->
+          <polygon id="poly-ABCD-outline" points="190,50 90,290 450,290 340,50" fill="none" stroke="#1e293b" stroke-width="3" stroke-linejoin="round" class="svg-transition"/>
+
+          <!-- 対角線 BD (ステップによって表示) -->
+          <line id="line-BD" x1="90" y1="290" x2="340" y2="50" stroke="#dc2626" stroke-width="3.5" stroke-dasharray="8,6" opacity="0" class="svg-transition"/>
+
+          <!-- 比のラベル (AE:EB = 3:2) -->
+          <g id="ratio-AB" class="svg-transition">
+            <path id="arc-AE" d="M 190,50 Q 140,110 130,194" fill="none" stroke="#2563eb" stroke-width="2" stroke-dasharray="3,3"/>
+            <path id="arc-EB" d="M 130,194 Q 95,235 90,290" fill="none" stroke="#2563eb" stroke-width="2" stroke-dasharray="3,3"/>
+            <circle id="badge-AE-bg" cx="142" cy="115" r="14" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+            <text id="badge-AE-txt" x="142" y="120" text-anchor="middle" font-size="14" font-weight="bold" fill="#1d4ed8">3</text>
+            <circle id="badge-EB-bg" cx="95" cy="235" r="14" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+            <text id="badge-EB-txt" x="95" y="240" text-anchor="middle" font-size="14" font-weight="bold" fill="#1d4ed8">2</text>
+          </g>
+
+          <!-- 比のラベル (BF:FC = 2:1) -->
+          <g id="ratio-BC" class="svg-transition">
+            <path id="arc-BF" d="M 90,290 Q 210,320 330,290" fill="none" stroke="#059669" stroke-width="2" stroke-dasharray="3,3"/>
+            <path id="arc-FC" d="M 330,290 Q 390,315 450,290" fill="none" stroke="#059669" stroke-width="2" stroke-dasharray="3,3"/>
+            <rect id="badge-BF-bg" x="196" y="298" width="28" height="24" rx="12" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+            <text id="badge-BF-txt" x="210" y="315" text-anchor="middle" font-size="14" font-weight="bold" fill="#047857">2</text>
+            <rect id="badge-FC-bg" x="376" y="298" width="28" height="24" rx="12" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+            <text id="badge-FC-txt" x="390" y="315" text-anchor="middle" font-size="14" font-weight="bold" fill="#047857">1</text>
+          </g>
+
+          <!-- 図形内の面積・割合ラベル -->
+          <g id="area-labels" class=" font-bold">
+            <text id="label-AED" x="225" y="105" text-anchor="middle" font-size="16" fill="#475569"></text>
+            <text id="label-EBD" x="200" y="165" text-anchor="middle" font-size="16" fill="#9a3412"></text>
+            <text id="label-EBF" x="195" y="265" text-anchor="middle" font-size="16" fill="#475569"></text>
+            <text id="label-EDF" x="275" y="205" text-anchor="middle" font-size="16" fill="#9a3412"></text>
+            <text id="label-DFC" x="375" y="225" text-anchor="middle" font-size="16" fill="#475569"></text>
+            <text id="label-DEF-center" x="255" y="190" text-anchor="middle" font-size="22" font-weight="900" fill="#c2410c"></text>
+          </g>
+
+          <!-- 頂点の丸とアルファベット -->
+          <g id="vertices">
+            <circle id="pt-A" cx="190" cy="50" r="5" fill="#1e293b" class="svg-transition"/>
+            <text id="txt-A" x="185" y="38" text-anchor="middle" font-size="18" font-weight="bold" fill="#1e293b" class="svg-transition">A</text>
+
+            <circle id="pt-D" cx="340" cy="50" r="5" fill="#1e293b" class="svg-transition"/>
+            <text id="txt-D" x="345" y="38" text-anchor="middle" font-size="18" font-weight="bold" fill="#1e293b" class="svg-transition">D</text>
+
+            <circle id="pt-E" cx="130" cy="194" r="5" fill="#ea580c" class="svg-transition"/>
+            <text id="txt-E" x="108" y="198" text-anchor="middle" font-size="18" font-weight="bold" fill="#ea580c" class="svg-transition">E</text>
+
+            <circle id="pt-B" cx="90" cy="290" r="5" fill="#1e293b" class="svg-transition"/>
+            <text id="txt-B" x="72" y="298" text-anchor="middle" font-size="18" font-weight="bold" fill="#1e293b" class="svg-transition">B</text>
+
+            <circle id="pt-F" cx="330" cy="290" r="5" fill="#ea580c" class="svg-transition"/>
+            <text id="txt-F" x="330" y="314" text-anchor="middle" font-size="18" font-weight="bold" fill="#ea580c" class="svg-transition">F</text>
+
+            <circle id="pt-C" cx="450" cy="290" r="5" fill="#1e293b" class="svg-transition"/>
+            <text id="txt-C" x="468" y="298" text-anchor="middle" font-size="18" font-weight="bold" fill="#1e293b" class="svg-transition">C</text>
+          </g>
+        </svg>
+      </div>
+
+      <!-- モード1：ステップ解説コントロール -->
+      <div id="panel-method1" class="space-y-4">
+        <!-- ステップボタン -->
+        <div class="grid grid-cols-5 gap-1.5 md:gap-2">
+          <button onclick="setStep(1)" id="step-btn-1" class="step-btn py-2.5 px-1 rounded-xl font-bold text-xs md:text-sm border-2 transition-all">
+            ① 問題の確認
+          </button>
+          <button onclick="setStep(2)" id="step-btn-2" class="step-btn py-2.5 px-1 rounded-xl font-bold text-xs md:text-sm border-2 transition-all">
+            ② 線を1本引く
+          </button>
+          <button onclick="setStep(3)" id="step-btn-3" class="step-btn py-2.5 px-1 rounded-xl font-bold text-xs md:text-sm border-2 transition-all">
+            ③ 左上の三角形
+          </button>
+          <button onclick="setStep(4)" id="step-btn-4" class="step-btn py-2.5 px-1 rounded-xl font-bold text-xs md:text-sm border-2 transition-all">
+            ④ 右下の三角形
+          </button>
+          <button onclick="setStep(5)" id="step-btn-5" class="step-btn py-2.5 px-1 rounded-xl font-bold text-xs md:text-sm border-2 transition-all">
+            ⑤ 合体して完成！
+          </button>
+        </div>
+
+        <!-- 解説テキストボックス -->
+        <div id="step-explanation" class="bg-amber-50/90 border-2 border-amber-300 rounded-2xl p-4 md:p-5 min-h-[150px] flex flex-col justify-between">
+          <div id="step-content" class="text-slate-800 space-y-2 leading-relaxed">
+            <!-- JSで挿入 -->
+          </div>
+          <div class="flex justify-between items-center mt-4 pt-3 border-t border-amber-200">
+            <button id="prev-btn" onclick="changeStep(-1)" class="px-4 py-2 rounded-xl bg-white border border-slate-300 font-bold text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-40">
+              ← まえへ
+            </button>
+            <span id="step-indicator" class="text-xs font-bold text-amber-800">ステップ 1 / 5</span>
+            <button id="next-btn" onclick="changeStep(1)" class="px-5 py-2 rounded-xl bg-orange-500 text-white font-bold text-sm hover:bg-orange-600 shadow-sm disabled:opacity-40">
+              つぎへ →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- モード2：形を変える裏ワザ実験コントロール -->
+      <div id="panel-method2" class="hidden space-y-4">
+        <div class="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4 md:p-5 space-y-4">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
+            <div>
+              <span class="bg-blue-600 text-white text-xs font-bold px-2.5 py-1 rounded-full">ひみつの実験</span>
+              <h3 class="text-base md:text-lg font-extrabold text-blue-950 mt-1">
+                上の辺（AD）の長さを自由に変えてみよう！
+              </h3>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="setPresetShape('rectangle')" class="px-3 py-1.5 bg-white border-2 border-blue-400 text-blue-700 rounded-xl text-xs font-bold hover:bg-blue-100 shadow-sm">
+                📏 長方形にする（おすすめ！）
+              </button>
+              <button onclick="setPresetShape('normal')" class="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-100">
+                元の台形に戻す
+              </button>
+            </div>
+          </div>
+
+          <p class="text-sm text-slate-700 leading-relaxed">
+            問題には「上の辺 AD の長さ」が書いてありません。ということは、<strong>ADをどんな長さに変えても、真ん中の三角形の割合（2/5）は絶対に変わらない</strong>のです！下のつまみを動かして確かめてみましょう。
+          </p>
+
+          <!-- スライダー -->
+          <div class="bg-white p-4 rounded-xl border border-blue-200 space-y-2">
+            <div class="flex justify-between text-xs font-bold text-slate-600">
+              <span>短い（三角形にちかい）</span>
+              <span id="slider-val-label" class="text-orange-600 text-sm">上の辺 AD = 1.5 cm</span>
+              <span>長い（長方形＝3cm）</span>
+            </div>
+            <input id="ad-slider" type="range" min="0" max="4.5" step="0.5" value="1.5" oninput="updateCustomShape(this.value)" class="w-full h-3 bg-slate-200 rounded-lg cursor-pointer">
+          </div>
+
+          <!-- 面積のリアルタイム計算表 -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
+            <div class="bg-white p-2.5 rounded-xl border border-slate-200">
+              <div class="text-xs text-slate-500 font-bold">① 上の△AED</div>
+              <div id="calc-aed" class="text-base font-extrabold text-slate-700 mt-0.5">2.25</div>
+            </div>
+            <div class="bg-white p-2.5 rounded-xl border border-slate-200">
+              <div class="text-xs text-slate-500 font-bold">② 左下の△EBF</div>
+              <div id="calc-ebf" class="text-base font-extrabold text-slate-700 mt-0.5">2.0</div>
+            </div>
+            <div class="bg-white p-2.5 rounded-xl border border-slate-200">
+              <div class="text-xs text-slate-500 font-bold">③ 右下の△DFC</div>
+              <div id="calc-dfc" class="text-base font-extrabold text-slate-700 mt-0.5">2.5</div>
+            </div>
+            <div class="bg-orange-100 p-2.5 rounded-xl border-2 border-orange-400">
+              <div class="text-xs text-orange-800 font-bold">★ 真ん中の△DEF</div>
+              <div id="calc-def" class="text-base font-extrabold text-orange-600 mt-0.5">全体の 2/5 (48cm²)</div>
+            </div>
+          </div>
+
+          <div id="method2-explanation" class="bg-white p-3.5 rounded-xl border border-blue-200 text-sm text-slate-700 leading-relaxed">
+            <!-- JSで動的に更新 -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let currentMode = 1;
+    let currentStep = 1;
+
+    // ステップごとの解説データ
+    const stepData = {
+      1: {
+        title: "ステップ①：わかっていることを確認しよう",
+        html: `
+          <p>台形ABCD全体の面積は <strong>120 cm²</strong> です。</p>
+          <ul class="list-disc list-inside space-y-1 text-sm md:text-base mt-1">
+            <li>左の辺は <span class="text-blue-700 font-bold">AE : EB ＝ 3 : 2</span> に分かれています。</li>
+            <li>下の辺は <span class="text-emerald-700 font-bold">BF : FC ＝ 2 : 1</span> に分かれています。</li>
+          </ul>
+          <p class="mt-2 text-orange-700 font-bold">このままでは計算しにくいので、つぎのステップで「魔法の線」を1本引きます！</p>
+        `
+      },
+      2: {
+        title: "ステップ②：BとDをむすぶ「ななめの線」を引こう！",
+        html: `
+          <p>頂点Bから頂点Dへ、<strong class="text-red-600">赤い点線（対角線BD）</strong>を1本引きます。</p>
+          <p class="mt-1">すると、台形がパカッと<strong>2つの三角形</strong>に分かれますね！</p>
+          <div class="flex gap-2 mt-2 text-xs md:text-sm font-bold">
+            <span class="bg-blue-100 text-blue-800 px-3 py-1.5 rounded-lg border border-blue-300">左上の三角形（△ABD）</span>
+            <span class="bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg border border-emerald-300">右下の三角形（△BCD）</span>
+          </div>
+        `
+      },
+      3: {
+        title: "ステップ③：「左上の三角形」だけを見てみよう",
+        html: `
+          <p>まず<strong>左上の三角形（△ABD）</strong>だけに注目します。</p>
+          <p class="mt-1">辺ABが <span class="text-blue-700 font-bold">3 : 2</span>（合わせて <strong>5</strong>）に分かれているので、面積もそのまま <strong>3 : 2</strong> に分かれます。</p>
+          <p class="mt-2 bg-orange-100 border border-orange-300 text-orange-900 p-2.5 rounded-xl font-bold">
+            💡 オレンジ色の部分（△EBD）は、左上の三角形全体の <span class="text-lg text-red-600 underline">2/5</span> です！
+          </p>
+        `
+      },
+      4: {
+        title: "ステップ④：「右下の三角形」だけを見てみよう",
+        html: `
+          <p>つぎに<strong>右下の三角形（△BCD）</strong>を見ます。わかりやすいように、この三角形全体の面積を<strong>「15」</strong>としてみます。</p>
+          <ol class="list-decimal list-inside space-y-1 text-sm mt-1">
+            <li>下の辺が <span class="text-emerald-700 font-bold">2 : 1</span> なので、左右で <strong>「10」と「5」</strong> に分かれます。</li>
+            <li>左側の「10」の三角形が、点E（下から2、上から3）によって <strong>2 : 3</strong>、つまり <strong>「4」と「6」</strong> に分かれます。</li>
+          </ol>
+          <p class="mt-2 bg-orange-100 border border-orange-300 text-orange-900 p-2.5 rounded-xl font-bold">
+            💡 オレンジ色の部分（△EDF）は、全体「15」のうちの「6」、つまり約分すると <span class="text-lg text-red-600 underline">2/5</span> です！
+          </p>
+        `
+      },
+      5: {
+        title: "ステップ⑤：2つを合体させると…答えが出た！",
+        html: `
+          <p>左上と右下をもう一度合わせて見てみましょう！</p>
+          <ul class="list-disc list-inside space-y-1 font-bold text-slate-700 mt-1">
+            <li>左上の三角形のうち、オレンジ色の部分は <span class="text-red-600">2/5</span></li>
+            <li>右下の三角形のうち、オレンジ色の部分も <span class="text-red-600">2/5</span></li>
+          </ul>
+          <p class="mt-2 text-base md:text-lg font-extrabold text-orange-800 bg-orange-100 p-3 rounded-xl border-2 border-orange-400 text-center">
+            どちらも 2/5 だから、台形全体で見てもちょうど 2/5 ！<br>
+            120 cm² × <span class="text-red-600">2/5</span> ＝ <span class="text-2xl text-red-600 underline">48 cm²</span>
+          </p>
+        `
+      }
+    };
+
+    function switchMode(mode) {
+      currentMode = mode;
+      const tab1 = document.getElementById('tab-method1');
+      const tab2 = document.getElementById('tab-method2');
+      const panel1 = document.getElementById('panel-method1');
+      const panel2 = document.getElementById('panel-method2');
+
+      if (mode === 1) {
+        tab1.className = "flex-1 py-3 px-4 rounded-2xl font-bold text-sm md:text-base transition-all bg-orange-500 text-white shadow-md";
+        tab2.className = "flex-1 py-3 px-4 rounded-2xl font-bold text-sm md:text-base transition-all bg-white text-slate-600 hover:bg-orange-100";
+        panel1.classList.remove('hidden');
+        panel2.classList.add('hidden');
+        resetTrapezoidCoords();
+        setStep(currentStep);
+      } else {
+        tab2.className = "flex-1 py-3 px-4 rounded-2xl font-bold text-sm md:text-base transition-all bg-blue-600 text-white shadow-md";
+        tab1.className = "flex-1 py-3 px-4 rounded-2xl font-bold text-sm md:text-base transition-all bg-white text-slate-600 hover:bg-orange-100";
+        panel2.classList.remove('hidden');
+        panel1.classList.add('hidden');
+        setPresetShape('rectangle');
+      }
+    }
+
+    function changeStep(delta) {
+      const next = currentStep + delta;
+      if (next >= 1 && next <= 5) {
+        setStep(next);
+      }
+    }
+
+    function setStep(step) {
+      currentStep = step;
+
+      // ボタンのスタイル更新
+      for (let i = 1; i <= 5; i++) {
+        const btn = document.getElementById(`step-btn-${i}`);
+        if (i === step) {
+          btn.className = "step-btn py-2.5 px-1 rounded-xl font-extrabold text-xs md:text-sm border-2 bg-orange-500 text-white border-orange-600 shadow-sm";
+        } else {
+          btn.className = "step-btn py-2.5 px-1 rounded-xl font-bold text-xs md:text-sm border-2 bg-white text-slate-600 border-slate-200 hover:bg-orange-50";
+        }
+      }
+
+      // テキスト更新
+      const contentBox = document.getElementById('step-content');
+      contentBox.innerHTML = `<h3 class="font-extrabold text-base md:text-lg text-amber-900">${stepData[step].title}</h3>` + stepData[step].html;
+      document.getElementById('step-indicator').textContent = `ステップ ${step} / 5`;
+      document.getElementById('prev-btn').disabled = (step === 1);
+      document.getElementById('next-btn').disabled = (step === 5);
+
+      // SVGの表示状態更新
+      const lineBD = document.getElementById('line-BD');
+      const polyAED = document.getElementById('poly-AED');
+      const polyEBD = document.getElementById('poly-EBD');
+      const polyEBF = document.getElementById('poly-EBF');
+      const polyEDF = document.getElementById('poly-EDF');
+      const polyDFC = document.getElementById('poly-DFC');
+
+      const lblAED = document.getElementById('label-AED');
+      const lblEBD = document.getElementById('label-EBD');
+      const lblEBF = document.getElementById('label-EBF');
+      const lblEDF = document.getElementById('label-EDF');
+      const lblDFC = document.getElementById('label-DFC');
+      const lblCenter = document.getElementById('label-DEF-center');
+
+      // ラベル一旦クリア
+      lblAED.textContent = "";
+      lblEBD.textContent = "";
+      lblEBF.textContent = "";
+      lblEDF.textContent = "";
+      lblDFC.textContent = "";
+      lblCenter.textContent = "";
+
+      // 透明度リセット
+      polyAED.setAttribute('opacity', '1');
+      polyEBD.setAttribute('opacity', '1');
+      polyEBF.setAttribute('opacity', '1');
+      polyEDF.setAttribute('opacity', '1');
+      polyDFC.setAttribute('opacity', '1');
+
+      if (step === 1) {
+        lineBD.setAttribute('opacity', '0');
+        polyAED.setAttribute('fill', '#f8fafc');
+        polyEBF.setAttribute('fill', '#f8fafc');
+        polyDFC.setAttribute('fill', '#f8fafc');
+        polyEBD.setAttribute('fill', '#fed7aa');
+        polyEDF.setAttribute('fill', '#fed7aa');
+        lblCenter.textContent = "△DEF = ？ cm²";
+      } else if (step === 2) {
+        lineBD.setAttribute('opacity', '1');
+        polyAED.setAttribute('fill', '#dbeafe');
+        polyEBD.setAttribute('fill', '#bfdbfe');
+        polyEBF.setAttribute('fill', '#d1fae5');
+        polyEDF.setAttribute('fill', '#a7f3d0');
+        polyDFC.setAttribute('fill', '#d1fae5');
+        lblEBD.textContent = "左上の△ABD";
+        lblEDF.textContent = "右下の△BCD";
+      } else if (step === 3) {
+        lineBD.setAttribute('opacity', '1');
+        // 左上を強調、右下を薄く
+        polyAED.setAttribute('fill', '#e2e8f0');
+        polyEBD.setAttribute('fill', '#fdba74');
+        polyEBF.setAttribute('opacity', '0.2');
+        polyEDF.setAttribute('opacity', '0.2');
+        polyDFC.setAttribute('opacity', '0.2');
+        lblAED.textContent = "面積 ③";
+        lblEBD.textContent = "面積 ② (2/5)";
+      } else if (step === 4) {
+        lineBD.setAttribute('opacity', '1');
+        // 右下を強調、左上を薄く
+        polyAED.setAttribute('opacity', '0.2');
+        polyEBD.setAttribute('opacity', '0.2');
+        polyEBF.setAttribute('fill', '#e2e8f0');
+        polyDFC.setAttribute('fill', '#e2e8f0');
+        polyEDF.setAttribute('fill', '#fdba74');
+        lblEBF.textContent = "面積 [4]";
+        lblEDF.textContent = "面積 [6] (6/15＝2/5)";
+        lblDFC.textContent = "面積 [5]";
+      } else if (step === 5) {
+        lineBD.setAttribute('opacity', '1');
+        polyAED.setAttribute('fill', '#f1f5f9');
+        polyEBF.setAttribute('fill', '#f1f5f9');
+        polyDFC.setAttribute('fill', '#f1f5f9');
+        polyEBD.setAttribute('fill', '#fb923c');
+        polyEDF.setAttribute('fill', '#fb923c');
+        lblAED.textContent = "3/5";
+        lblEBD.textContent = "★ 2/5";
+        lblEDF.textContent = "★ 2/5";
+        lblEBF.textContent = "4/15";
+        lblDFC.textContent = "5/15";
+      }
+    }
+
+    // 元の台形の座標に戻す関数
+    function resetTrapezoidCoords() {
+      updateSVGPoints(190, 50, 340, 50, 90, 290, 450, 290);
+      document.getElementById('ratio-AB').setAttribute('opacity', '1');
+    }
+
+    // プリセット形状の適用（モード2）
+    function setPresetShape(type) {
+      const slider = document.getElementById('ad-slider');
+      if (type === 'rectangle') {
+        slider.value = 3.0;
+        updateCustomShape(3.0);
+      } else {
+        slider.value = 1.5;
+        updateCustomShape(1.5);
+      }
+    }
+
+    // スライダーで上底ADの長さを変えたときの処理（下底BC=3cm, 高さ=5cmと仮定）
+    function updateCustomShape(adLengthStr) {
+      const adLen = parseFloat(adLengthStr);
+      document.getElementById('slider-val-label').textContent = `上の辺 AD = ${adLen} cm （下の辺 BC = 3 cm）`;
+
+      // 下底BCは B(90, 290) 〜 C(450, 290) で幅 360px (1cm = 120px)
+      // 中心または左揃えにするが、長方形(AD=3)のとき A(90, 50), D(450, 50) になるとわかりやすい！
+      // AD=1.5 のときは A(180, 50), D(360, 50) など。
+      // 左端B(90)を基準にしつつ、長方形のときにぴったり垂直になるよう補間する：
+      // AD=3.0 のとき Ax=90, Dx=450
+      // AD=1.5 のとき Ax=180, Dx=360
+      const widthPx = adLen * 120;
+      const center = 270;
+      const Ax = center - widthPx / 2;
+      const Dx = center + widthPx / 2;
+
+      updateSVGPoints(Ax, 50, Dx, 50, 90, 290, 450, 290);
+
+      // モード2用の色とラベル設定
+      document.getElementById('line-BD').setAttribute('opacity', '0');
+      const polyAED = document.getElementById('poly-AED');
+      const polyEBD = document.getElementById('poly-EBD');
+      const polyEBF = document.getElementById('poly-EBF');
+      const polyEDF = document.getElementById('poly-EDF');
+      const polyDFC = document.getElementById('poly-DFC');
+
+      polyAED.setAttribute('opacity', '1');
+      polyEBD.setAttribute('opacity', '1');
+      polyEBF.setAttribute('opacity', '1');
+      polyEDF.setAttribute('opacity', '1');
+      polyDFC.setAttribute('opacity', '1');
+
+      polyAED.setAttribute('fill', '#e0f2fe');
+      polyEBF.setAttribute('fill', '#e0f2fe');
+      polyDFC.setAttribute('fill', '#e0f2fe');
+      polyEBD.setAttribute('fill', '#fdba74');
+      polyEDF.setAttribute('fill', '#fdba74');
+
+      // 仮の面積計算（高さ=5, BF=2, FC=1）
+      const totalArea = (adLen + 3) * 5 / 2;
+      const areaAED = adLen * 3 / 2;
+      const areaEBF = 2 * 2 / 2; // 常に2
+      const areaDFC = 1 * 5 / 2; // 常に2.5
+      const areaDEF = totalArea - (areaAED + areaEBF + areaDFC);
+
+      document.getElementById('calc-aed').textContent = `${areaAED.toFixed(2).replace(/\.00$/, '')}`;
+      document.getElementById('calc-ebf').textContent = `2`;
+      document.getElementById('calc-dfc').textContent = `2.5`;
+      document.getElementById('calc-def').textContent = `${areaDEF.toFixed(2).replace(/\.00$/, '')} / 全体 ${totalArea.toFixed(2).replace(/\.00$/, '')}`;
+
+      // 図の中のラベル更新
+      const lblAED = document.getElementById('label-AED');
+      const lblEBD = document.getElementById('label-EBD');
+      const lblEBF = document.getElementById('label-EBF');
+      const lblEDF = document.getElementById('label-EDF');
+      const lblDFC = document.getElementById('label-DFC');
+      const lblCenter = document.getElementById('label-DEF-center');
+
+      lblEBD.textContent = "";
+      lblEDF.textContent = "";
+      lblAED.textContent = adLen > 0.3 ? `① ${areaAED.toFixed(1).replace(/\.0$/, '')}` : "";
+      lblEBF.textContent = `② 2`;
+      lblDFC.textContent = `③ 2.5`;
+      lblCenter.textContent = `★ ${areaDEF.toFixed(1).replace(/\.0$/, '')} (全体の2/5)`;
+
+      const expBox = document.getElementById('method2-explanation');
+      if (Math.abs(adLen - 3.0) < 0.01) {
+        expBox.innerHTML = `
+          <div class="font-bold text-blue-900 mb-1">🎯 長方形（上の辺3cm、下の辺3cm、たて5cm）にしたとき：</div>
+          <ul class="list-disc list-inside space-y-0.5 text-xs md:text-sm">
+            <li>長方形全体の面積 ＝ たて 5 × よこ 3 ＝ <strong>15</strong></li>
+            <li>まわりの3つの直角三角形 ＝ ① <strong>4.5</strong> ＋ ② <strong>2</strong> ＋ ③ <strong>2.5</strong> ＝ <strong>9</strong></li>
+            <li>真ん中の★△DEF ＝ 全体 15 － 9 ＝ <strong>6</strong> （15のうちの6だから <strong>6/15 ＝ 2/5</strong>！）</li>
+          </ul>
+          <p class="mt-1.5 font-bold text-orange-700">すべて直角三角形になるので、小学生でも30秒で計算できます！</p>
+        `;
+      } else {
+        expBox.innerHTML = `
+          <div class="font-bold text-slate-800 mb-1">📐 上の辺 AD を ${adLen} cm にしたとき：</div>
+          <p class="text-xs md:text-sm">
+            全体の面積は <strong>${totalArea.toFixed(2).replace(/\.00$/, '')}</strong> になり、真ん中の★△DEFの面積は <strong>${areaDEF.toFixed(2).replace(/\.00$/, '')}</strong> になります。<br>
+            割合を計算すると、${areaDEF.toFixed(2).replace(/\.00$/, '')} ÷ ${totalArea.toFixed(2).replace(/\.00$/, '')} ＝ <strong>0.4（かならず 2/5）</strong> になり、本当の面積も 120 × 2/5 ＝ <strong>48 cm²</strong> で変わりません！
+          </p>
+        `;
+      }
+    }
+
+    // 頂点座標から各ポリゴン・ラベル位置を再計算して反映する関数
+    function updateSVGPoints(Ax, Ay, Dx, Dy, Bx, By, Cx, Cy) {
+      // EはABを3:2に分ける点
+      const Ex = (2 * Ax + 3 * Bx) / 5;
+      const Ey = (2 * Ay + 3 * By) / 5;
+      // FはBCを2:1に分ける点
+      const Fx = (1 * Bx + 2 * Cx) / 3;
+      const Fy = (1 * By + 2 * Cy) / 3;
+
+      document.getElementById('poly-AED').setAttribute('points', `${Ax},${Ay} ${Ex},${Ey} ${Dx},${Dy}`);
+      document.getElementById('poly-EBF').setAttribute('points', `${Ex},${Ey} ${Bx},${By} ${Fx},${Fy}`);
+      document.getElementById('poly-DFC').setAttribute('points', `${Dx},${Dy} ${Fx},${Fy} ${Cx},${Cy}`);
+      document.getElementById('poly-EBD').setAttribute('points', `${Ex},${Ey} ${Bx},${By} ${Dx},${Dy}`);
+      document.getElementById('poly-EDF').setAttribute('points', `${Ex},${Ey} ${Fx},${Fy} ${Dx},${Dy}`);
+      document.getElementById('poly-DEF-outline').setAttribute('points', `${Dx},${Dy} ${Ex},${Ey} ${Fx},${Fy}`);
+      document.getElementById('poly-ABCD-outline').setAttribute('points', `${Ax},${Ay} ${Bx},${By} ${Cx},${Cy} ${Dx},${Dy}`);
+
+      document.getElementById('line-BD').setAttribute('x1', Bx);
+      document.getElementById('line-BD').setAttribute('y1', By);
+      document.getElementById('line-BD').setAttribute('x2', Dx);
+      document.getElementById('line-BD').setAttribute('y2', Dy);
+
+      // 頂点の移動
+      setPt('A', Ax, Ay, Ax - 5, Ay - 12);
+      setPt('D', Dx, Dy, Dx + 5, Dy - 12);
+      setPt('E', Ex, Ey, Ex - 20, Ey + 4);
+      setPt('B', Bx, By, Bx - 18, By + 8);
+      setPt('F', Fx, Fy, Fx, Fy + 24);
+      setPt('C', Cx, Cy, Cx + 18, Cy + 8);
+
+      // 左側の比のガイド移動
+      const midAEx = (Ax + Ex) / 2 - 22;
+      const midAEy = (Ay + Ey) / 2;
+      const midEBx = (Ex + Bx) / 2 - 20;
+      const midEBy = (Ey + By) / 2;
+      document.getElementById('arc-AE').setAttribute('d', `M ${Ax},${Ay} Q ${midAEx},${midAEy} ${Ex},${Ey}`);
+      document.getElementById('arc-EB').setAttribute('d', `M ${Ex},${Ey} Q ${midEBx},${midEBy} ${Bx},${By}`);
+      document.getElementById('badge-AE-bg').setAttribute('cx', midAEx);
+      document.getElementById('badge-AE-bg').setAttribute('cy', midAEy);
+      document.getElementById('badge-AE-txt').setAttribute('x', midAEx);
+      document.getElementById('badge-AE-txt').setAttribute('y', midAEy + 5);
+      document.getElementById('badge-EB-bg').setAttribute('cx', midEBx);
+      document.getElementById('badge-EB-bg').setAttribute('cy', midEBy);
+      document.getElementById('badge-EB-txt').setAttribute('x', midEBx);
+      document.getElementById('badge-EB-txt').setAttribute('y', midEBy + 5);
+
+      // ラベルの重心位置調整
+      setCenter('label-AED', (Ax + Ex + Dx) / 3, (Ay + Ey + Dy) / 3);
+      setCenter('label-EBD', (Ex + Bx + Dx) / 3, (Ey + By + Dy) / 3);
+      setCenter('label-EBF', (Ex + Bx + Fx) / 3, (Ey + By + Fy) / 3 + 8);
+      setCenter('label-EDF', (Ex + Fx + Dx) / 3 + 10, (Ey + Fy + Dy) / 3 + 15);
+      setCenter('label-DFC', (Dx + Fx + Cx) / 3, (Dy + Fy + Cy) / 3 + 15);
+      setCenter('label-DEF-center', (Dx + Ex + Fx) / 3, (Dy + Ey + Fy) / 3 + 5);
+    }
+
+    function setPt(id, cx, cy, tx, ty) {
+      document.getElementById(`pt-${id}`).setAttribute('cx', cx);
+      document.getElementById(`pt-${id}`).setAttribute('cy', cy);
+      document.getElementById(`txt-${id}`).setAttribute('x', tx);
+      document.getElementById(`txt-${id}`).setAttribute('y', ty);
+    }
+
+    function setCenter(id, x, y) {
+      const el = document.getElementById(id);
+      el.setAttribute('x', x);
+      el.setAttribute('y', y);
+    }
+
+    // 初期表示
+    setStep(1);
+  </script>
+</body>
+</html>
