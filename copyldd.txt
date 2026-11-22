@@ -1,0 +1,10 @@
+copy_bin() {
+  bin=$(which "$1")
+  mkdir -p "rootfs$(dirname $bin)"
+  cp -L "$bin" "rootfs$bin"
+  ldd "$bin" | grep -o '/[^ ]*' | while read lib; do
+    mkdir -p "rootfs$(dirname $lib)"
+    cp -L "$lib" "rootfs$lib"
+  done
+}
+copy_bin sleep
